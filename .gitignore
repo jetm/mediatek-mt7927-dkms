@@ -1,0 +1,7 @@
+*.pkg.tar.zst
+*.zip
+src/
+pkg/
+FINDINGS.md
+openspec/
+linux-driver-mediatek-mt7927-bluetooth/
