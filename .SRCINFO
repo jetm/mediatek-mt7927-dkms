@@ -1,7 +1,7 @@
 pkgbase = btusb-mt7927-dkms
 	pkgdesc = DKMS bluetooth module and firmware for MediaTek MT7927 (MT6639)
 	pkgver = 1.0
-	pkgrel = 1
+	pkgrel = 2
 	url = https://github.com/clemenscodes/linux-mediatek-mt6639-bluetooth-kernel-module
 	install = btusb-mt7927-dkms.install
 	arch = x86_64
@@ -15,7 +15,7 @@ pkgbase = btusb-mt7927-dkms
 	source = dkms-patchmodule.sh
 	sha256sums = a112542296d49640c317a1af7bc57fcdd1b54d2cf1fe8646e4e46f736ff7bfd6
 	sha256sums = bdcada7667f84479d7deda034ebb9110f3005c80be0eccc65a3110c2eaedc335
-	sha256sums = aeb0b98511abcda328d3104f619e9105ff27272fe84261f2f1d267a07d979560
+	sha256sums = 35926348bd559e440a3ca5c22ff898d548529cd096f4869e6070a57b3abaf699
 	sha256sums = ecc4f7251834422c0bff716c6aad9576bd7653d233d025267d2035d35b34dd05
 
 pkgname = btusb-mt7927-dkms
