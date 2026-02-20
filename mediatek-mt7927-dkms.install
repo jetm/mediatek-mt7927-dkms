@@ -1,4 +1,4 @@
-_pkgname=btusb-mt7927
+_pkgname=mediatek-mt7927
 _pkgver=1.0
 
 post_install() {

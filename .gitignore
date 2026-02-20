@@ -5,3 +5,4 @@ pkg/
 FINDINGS.md
 openspec/
 linux-driver-mediatek-mt7927-bluetooth/
+__pycache__/
