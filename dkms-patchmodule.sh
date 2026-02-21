@@ -53,8 +53,8 @@ for file in "${OPTIONAL_FILES[@]}"; do
 	download_file "$file" 2>/dev/null || true
 done
 
-# Check if MT6639 support is already present upstream (all three layers)
-if grep -q "0x6639" "$BT_DIR/btmtk.c" && grep -q "0xe13a" "$BT_DIR/btusb.c"; then
+# Check if MT6639 support is already present upstream (chip ID in btmtk.c + firmware path in btmtk.h)
+if grep -q '0x6639' "$BT_DIR/btmtk.c" && grep -q '0x6639' "$BT_DIR/btmtk.h"; then
 	echo "==> MT6639 support already present in kernel ${BASE_VERSION}"
 	echo "==> Patch not needed - building unmodified modules"
 else

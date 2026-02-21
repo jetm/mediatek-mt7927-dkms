@@ -1,10 +1,14 @@
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
-@@ -18,6 +18,8 @@ static const struct pci_device_id mt7925_pci_device_table[] = {
+@@ -18,6 +18,12 @@ static const struct pci_device_id mt7925_pci_device_table[] = {
  		.driver_data = (kernel_ulong_t)MT7925_FIRMWARE_WM },
  	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x0717),
  		.driver_data = (kernel_ulong_t)MT7925_FIRMWARE_WM },
 +	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x7927),
++		.driver_data = (kernel_ulong_t)MT7925_FIRMWARE_WM },
++	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x6639),
++		.driver_data = (kernel_ulong_t)MT7925_FIRMWARE_WM },
++	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x0738),
 +		.driver_data = (kernel_ulong_t)MT7925_FIRMWARE_WM },
  	{ },
  };

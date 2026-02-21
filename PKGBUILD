@@ -1,18 +1,24 @@
 # Maintainer: floss@jetm.me
 #
-# DKMS package for MediaTek MT7927 combo chip (Filogic 380):
+# DKMS package for MediaTek MT7927 / MT6639 combo chip (Filogic 380):
 #   - Bluetooth (MT6639 via USB): WORKING — patches btusb with MT6639 device ID
-#     and installs firmware extracted from the ASUS driver ZIP.
-#   - WiFi (MT7925e via PCIe): NOT YET WORKING — MT7927 (PCI ID 14c3:7927) binds
-#     to the patched mt7925e driver but firmware init fails ("patch semaphore" timeout).
-#     MT7927 WiFi requires DMA init changes not yet in mainline mt76. Tracking:
+#     and installs firmware extracted from the MediaTek driver package.
+#   - WiFi (MT7925e via PCIe): NOT YET WORKING — driver binds but firmware init
+#     fails ("patch semaphore" timeout). MT7927 WiFi requires DMA init changes
+#     not yet in mainline mt76. Tracking:
 #       https://github.com/openwrt/mt76/issues/927
 #       https://github.com/ehausig/mt7927
 #
+# Known hardware using MT7927/MT6639:
+#   - ASUS ROG Crosshair X870E Hero (BT USB 0489:e13a, WiFi PCI 14c3:7927)
+#   - Lenovo Legion Pro 7 16ARX9      (BT USB 0489:e0fa, WiFi PCI 14c3:7927)
+#   - Foxconn/Azurewave modules        (WiFi PCI 14c3:6639)
+#   - AMD RZ738 (MediaTek MT7927)      (WiFi PCI 14c3:0738)
+#
 # MediaTek naming is confusing. Here's the map:
 #   MT7927 = combo module on the motherboard (WiFi 7 + BT 5.4, Filogic 380)
-#     ├─ BT side:   internally MT6639, connects via USB (0489:e13a)
-#     └─ WiFi side: architecturally MT7925, connects via PCIe (14c3:7927)
+#     ├─ BT side:   internally MT6639, connects via USB
+#     └─ WiFi side: architecturally MT7925, connects via PCIe
 #   MT7925 = standalone WiFi 7 chip — same silicon as MT7927's WiFi half
 #   MT7902 = separate WiFi 6E chip (different product line, uses mt7921 driver)
 #
@@ -23,17 +29,25 @@
 #   - Including it costs nothing extra and helps users with MT7902 hardware who
 #     need the WiFi 6E patches from lore.kernel.org (Sean Wang's series).
 #
-# The ASUS driver ZIP is automatically downloaded from the ASUS CDN.
-# Alternatively, manually download from your board's ASUS support page:
-#   https://rog.asus.com/motherboards/rog-crosshair/rog-crosshair-x870e-hero/helpdesk_download/
-#   → WiFi & Bluetooth → MediaTek MT7925/MT7927 WiFi driver
-# Place the ZIP in this directory before running makepkg.
+# Firmware sourcing (in priority order):
+#   1. Pre-placed BT_RAM_CODE_MT6639_2_1_hdr.bin — skip extraction entirely
+#   2. Pre-placed mtkwlan.dat — extract firmware from it directly
+#   3. Any MediaTek MT7925/MT7927 WiFi driver ZIP in this directory
+#   4. Auto-download from ASUS CDN (fallback)
+#
+# Firmware can come from any MediaTek WiFi driver package containing mtkwlan.dat.
+# Known sources:
+#   - ASUS: board support page → WiFi & Bluetooth → MediaTek MT7925/MT7927
+#   - Station-Drivers: https://www.station-drivers.com (search "MT7925" or "MT7927")
+#   - Lenovo/Foxconn: OEM driver packages (extract mtkwlan.dat manually)
+# Place the firmware blob, mtkwlan.dat, or driver ZIP in this directory before
+# running makepkg.
 
 pkgname=mediatek-mt7927-dkms
 pkgver=1.0
-pkgrel=1
-# Keywords: MT7927 MT7925 MT6639 MT7902 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
-pkgdesc="DKMS Bluetooth (MT6639) and WiFi (MT7925e/MT7902) modules for MediaTek MT7927 Filogic 380"
+pkgrel=2
+# Keywords: MT7927 MT7925 MT6639 MT7902 RZ738 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
+pkgdesc="DKMS Bluetooth and WiFi modules for MediaTek MT7927/MT6639 Filogic 380 (multi-device)"
 arch=('x86_64')
 url="https://github.com/clemenscodes/linux-mediatek-mt6639-bluetooth-kernel-module"
 license=('GPL-2.0-only')
@@ -57,7 +71,7 @@ source=(
   'dkms.conf'
   'dkms-patchmodule.sh'
 )
-sha256sums=('a112542296d49640c317a1af7bc57fcdd1b54d2cf1fe8646e4e46f736ff7bfd6'
+sha256sums=('c4187bd88174a96f6ec912963be2a472bc77989d368f6eda28fc40b04747d64f'
             'SKIP'
             'SKIP'
             'bdcada7667f84479d7deda034ebb9110f3005c80be0eccc65a3110c2eaedc335'
@@ -178,30 +192,70 @@ _download_mt76_source() {
 }
 
 prepare() {
-  local _zips=("${startdir}"/DRV_WiFi_MTK_MT7925_MT7927*.zip)
+  local _fw_bin="${startdir}/BT_RAM_CODE_MT6639_2_1_hdr.bin"
+  local _mtkwlan="${startdir}/mtkwlan.dat"
 
-  # Auto-download if no ZIP found
-  if [[ ! -f "${_zips[0]}" ]]; then
+  # Priority 1: pre-placed firmware blob
+  if [[ -f "${_fw_bin}" ]]; then
+    msg2 "Using pre-placed firmware: BT_RAM_CODE_MT6639_2_1_hdr.bin"
+    cp "${_fw_bin}" "${srcdir}/BT_RAM_CODE_MT6639_2_1_hdr.bin"
+    return 0
+  fi
+
+  # Priority 2: pre-placed mtkwlan.dat
+  if [[ -f "${_mtkwlan}" ]]; then
+    msg2 "Using pre-placed mtkwlan.dat — will extract firmware in build()"
+    return 0
+  fi
+
+  # Priority 3: any MediaTek WiFi driver ZIP in the directory
+  local _zips=()
+  for pattern in "${startdir}"/DRV_WiFi_MTK_MT7925_MT7927*.zip \
+                 "${startdir}"/*MT7927*.zip \
+                 "${startdir}"/*MT7925*.zip; do
+    for f in $pattern; do
+      [[ -f "$f" ]] && _zips+=("$f")
+    done
+  done
+  # Deduplicate (a file may match multiple globs)
+  if (( ${#_zips[@]} > 0 )); then
+    local -A _seen
+    local _unique=()
+    for z in "${_zips[@]}"; do
+      local _base
+      _base="$(realpath "$z")"
+      if [[ -z "${_seen[$_base]+x}" ]]; then
+        _seen[$_base]=1
+        _unique+=("$z")
+      fi
+    done
+    _zips=("${_unique[@]}")
+  fi
+
+  # Priority 4: auto-download from ASUS CDN
+  if (( ${#_zips[@]} == 0 )); then
     _download_driver_zip
     _zips=("${startdir}/${_driver_filename}")
   fi
 
   if [[ ! -f "${_zips[0]}" ]]; then
-    error "No ASUS MT7925/MT7927 WiFi driver ZIP available"
-    msg2 "Download manually from your board's ASUS support page:"
-    msg2 "  https://rog.asus.com/motherboards/rog-crosshair/rog-crosshair-x870e-hero/helpdesk_download/"
-    msg2 "Select: WiFi & Bluetooth → MediaTek MT7925/MT7927 WiFi driver"
-    msg2 "Place the ZIP in the PKGBUILD directory, then run makepkg again."
+    error "No MT6639 firmware source available."
+    msg2 "Provide one of the following in the PKGBUILD directory:"
+    msg2 "  1. BT_RAM_CODE_MT6639_2_1_hdr.bin (firmware blob directly)"
+    msg2 "  2. mtkwlan.dat (from any MediaTek WiFi driver package)"
+    msg2 "  3. A MediaTek MT7925/MT7927 WiFi driver ZIP"
+    msg2 ""
+    msg2 "Sources: ASUS board support page, Station-Drivers.com, or OEM driver package."
     return 1
   fi
 
   if (( ${#_zips[@]} > 1 )); then
-    error "Multiple ASUS driver ZIPs found — keep only one:"
+    error "Multiple driver ZIPs found — keep only one:"
     for z in "${_zips[@]}"; do msg2 "  $(basename "$z")"; done
     return 1
   fi
 
-  # Verify integrity if using the known version
+  # Verify integrity if using the known ASUS version
   if [[ "$(basename "${_zips[0]}")" == "${_driver_filename}" ]]; then
     msg2 "Verifying ${_driver_filename}..."
     echo "${_driver_sha256}  ${_zips[0]}" | sha256sum -c - || {
@@ -214,11 +268,32 @@ prepare() {
 }
 
 build() {
-  local _zips=("${startdir}"/DRV_WiFi_MTK_MT7925_MT7927*.zip)
+  # Obtain BT firmware blob (prepare() already handled priority 1: pre-placed blob)
+  if [[ ! -f "${srcdir}/BT_RAM_CODE_MT6639_2_1_hdr.bin" ]]; then
+    local _mtkwlan="${srcdir}/mtkwlan.dat"
 
-  # Extract BT firmware from ASUS driver ZIP
-  bsdtar -xf "${_zips[0]}" -C "${srcdir}" mtkwlan.dat
-  python "${srcdir}/extract_firmware.py" "${srcdir}/mtkwlan.dat" "${srcdir}/BT_RAM_CODE_MT6639_2_1_hdr.bin"
+    # Priority 2: pre-placed mtkwlan.dat
+    if [[ -f "${startdir}/mtkwlan.dat" ]]; then
+      cp "${startdir}/mtkwlan.dat" "${_mtkwlan}"
+    fi
+
+    # Priority 3/4: extract mtkwlan.dat from driver ZIP
+    if [[ ! -f "${_mtkwlan}" ]]; then
+      local _zips=()
+      for pattern in "${startdir}"/DRV_WiFi_MTK_MT7925_MT7927*.zip \
+                     "${startdir}"/*MT7927*.zip \
+                     "${startdir}"/*MT7925*.zip; do
+        for f in $pattern; do
+          [[ -f "$f" ]] && _zips+=("$f") && break 2
+        done
+      done
+      msg2 "Extracting mtkwlan.dat from $(basename "${_zips[0]}")..."
+      bsdtar -xf "${_zips[0]}" -C "${srcdir}" mtkwlan.dat
+    fi
+
+    msg2 "Extracting BT firmware from mtkwlan.dat..."
+    python "${srcdir}/extract_firmware.py" "${_mtkwlan}" "${srcdir}/BT_RAM_CODE_MT6639_2_1_hdr.bin"
+  fi
 
   # Download mt76 source and apply WiFi patches
   _download_mt76_source "${_mt76_kver}" "${srcdir}/mt76"
