@@ -36,7 +36,7 @@
 
 pkgname=mediatek-mt7927-dkms
 pkgver=2.0
-pkgrel=1
+pkgrel=2
 # Keywords: MT7927 MT7925 MT6639 MT7902 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
 pkgdesc="DKMS Bluetooth (MT6639) and WiFi (MT7925e/MT7902) modules for MediaTek MT7927 Filogic 380"
 arch=('x86_64')
@@ -65,8 +65,8 @@ source=(
 )
 sha256sums=('c4187bd88174a96f6ec912963be2a472bc77989d368f6eda28fc40b04747d64f'
             '736d3fcd477e380a1b3e9f2a3d424ec4473535ead44e8c8ac8f515d886b8fdfa'
-            'd1b57403a61ad7bc85ad30044e5021c4d32f3968f31265b5c5988c212004bd27'
-            '55f4a124331cba7eb719a0af7f3b307b30d74786199fc1e9d3673b97c4794570'
+            '97b1b6b4105a54d1567bb08015fe003a590ed66b58644e88349989b5dafc9858'
+            'a5b3ef5e5f97f1aff608e5a51a8c425c2abc1e541f173bfb339b53d98434352d'
             'e94c77671abe0d589faa01c1a9451f626b1fc45fb04f765b43fd0e126d01a436'
             '7c62bc65e898046de775b888fa6b6f7c52f107716d1e618593beedc08618117e'
             '72216f5a821858fac0d616c8b3c12fb5ee09887c809e3815c6dbaace5d3b557f')
@@ -76,12 +76,12 @@ sha256sums=('c4187bd88174a96f6ec912963be2a472bc77989d368f6eda28fc40b04747d64f'
 _download_driver_zip() {
   local _token_url="https://cdnta.asus.com/api/v1/TokenHQ?filePath=https:%2F%2Fdlcdnta.asus.com%2Fpub%2FASUS%2Fmb%2F08WIRELESS%2F${_driver_filename}%3Fmodel%3DROG%2520CROSSHAIR%2520X870E%2520HERO&systemCode=rog"
 
-  msg2 "Fetching download token from ASUS CDN..."
+  echo "Fetching download token from ASUS CDN..."
   local _json
   _json="$(curl -sf "${_token_url}" -X POST -H 'Origin: https://rog.asus.com')"
 
   if [[ -z "${_json}" ]]; then
-    error "Failed to retrieve download token from ASUS CDN"
+    echo >&2 "Failed to retrieve download token from ASUS CDN"
     return 1
   fi
 
@@ -97,9 +97,9 @@ _download_driver_zip() {
 
   local _download_url="https://dlcdnta.asus.com/pub/ASUS/mb/08WIRELESS/${_driver_filename}?model=ROG%20CROSSHAIR%20X870E%20HERO&Signature=${_signature}&Expires=${_expires}&Key-Pair-Id=${_key_pair_id}"
 
-  msg2 "Downloading ${_driver_filename}..."
-  if ! curl -L -f -o "${startdir}/${_driver_filename}" "${_download_url}"; then
-    error "Failed to download driver ZIP"
+  echo "Downloading ${_driver_filename}..."
+  if ! curl -L -f -o "${SRCDEST:-.}/${_driver_filename}" "${_download_url}"; then
+    echo >&2 "Failed to download driver ZIP"
     return 1
   fi
 }
@@ -108,7 +108,7 @@ _download_mt76_source() {
   local _kver="$1"
   local _destdir="$2"
 
-  msg2 "Downloading mt76 source for kernel v${_kver}..."
+  echo "Downloading mt76 source for kernel v${_kver}..."
 
   local _base="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/drivers/net/wireless/mediatek/mt76"
 
@@ -161,67 +161,67 @@ _download_mt76_source() {
 
   for file in "${_mt76_files[@]}"; do
     if ! _dl_mt76_file "$file" "${_destdir}"; then
-      error "Failed to download mt76/${file}"
+      echo >&2 "Failed to download mt76/${file}"
       return 1
     fi
-    msg2 "  ${file}"
+    echo "  ${file}"
   done
 
   for file in "${_mt7921_files[@]}"; do
     if ! _dl_mt76_file "mt7921/${file}" "${_destdir}"; then
-      error "Failed to download mt76/mt7921/${file}"
+      echo >&2 "Failed to download mt76/mt7921/${file}"
       return 1
     fi
-    msg2 "  mt7921/${file}"
+    echo "  mt7921/${file}"
   done
 
   for file in "${_mt7925_files[@]}"; do
     if ! _dl_mt76_file "mt7925/${file}" "${_destdir}"; then
-      error "Failed to download mt76/mt7925/${file}"
+      echo >&2 "Failed to download mt76/mt7925/${file}"
       return 1
     fi
-    msg2 "  mt7925/${file}"
+    echo "  mt7925/${file}"
   done
 }
 
 prepare() {
-  local _zips=("${startdir}"/DRV_WiFi_MTK_MT7925_MT7927*.zip)
+  local _zips=("${SRCDEST:-.}"/DRV_WiFi_MTK_MT7925_MT7927*.zip)
 
   # Auto-download if no ZIP found
   if [[ ! -f "${_zips[0]}" ]]; then
     _download_driver_zip
-    _zips=("${startdir}/${_driver_filename}")
+    _zips=("${SRCDEST:-.}/${_driver_filename}")
   fi
 
   if [[ ! -f "${_zips[0]}" ]]; then
-    error "No ASUS MT7925/MT7927 WiFi driver ZIP available"
-    msg2 "Download manually from your board's ASUS support page:"
-    msg2 "  https://rog.asus.com/motherboards/rog-crosshair/rog-crosshair-x870e-hero/helpdesk_download/"
-    msg2 "Select: WiFi & Bluetooth → MediaTek MT7925/MT7927 WiFi driver"
-    msg2 "Place the ZIP in the PKGBUILD directory, then run makepkg again."
+    echo >&2 "No ASUS MT7925/MT7927 WiFi driver ZIP available"
+    echo "Download manually from your board's ASUS support page:"
+    echo "  https://rog.asus.com/motherboards/rog-crosshair/rog-crosshair-x870e-hero/helpdesk_download/"
+    echo "Select: WiFi & Bluetooth → MediaTek MT7925/MT7927 WiFi driver"
+    echo "Place the ZIP in the PKGBUILD directory, then run makepkg again."
     return 1
   fi
 
   if (( ${#_zips[@]} > 1 )); then
-    error "Multiple ASUS driver ZIPs found — keep only one:"
-    for z in "${_zips[@]}"; do msg2 "  $(basename "$z")"; done
+    echo >&2 "Multiple ASUS driver ZIPs found — keep only one:"
+    for z in "${_zips[@]}"; do echo "  $(basename "$z")"; done
     return 1
   fi
 
   # Verify integrity if using the known version
   if [[ "$(basename "${_zips[0]}")" == "${_driver_filename}" ]]; then
-    msg2 "Verifying ${_driver_filename}..."
+    echo "Verifying ${_driver_filename}..."
     echo "${_driver_sha256}  ${_zips[0]}" | sha256sum -c - || {
-      error "SHA256 mismatch for ${_driver_filename}"
+      echo >&2 "SHA256 mismatch for ${_driver_filename}"
       return 1
     }
   fi
 
-  msg2 "Using driver ZIP: $(basename "${_zips[0]}")"
+  echo "Using driver ZIP: $(basename "${_zips[0]}")"
 }
 
 build() {
-  local _zips=("${startdir}"/DRV_WiFi_MTK_MT7925_MT7927*.zip)
+  local _zips=("${SRCDEST:-.}"/DRV_WiFi_MTK_MT7925_MT7927*.zip)
 
   # Extract BT + WiFi firmware from ASUS driver ZIP
   bsdtar -xf "${_zips[0]}" -C "${srcdir}" mtkwlan.dat
@@ -232,13 +232,13 @@ build() {
 
   cd "${srcdir}/mt76"
 
-  msg2 "Applying mt7902-wifi-6.19.patch..."
+  echo "Applying mt7902-wifi-6.19.patch..."
   patch -p1 < "${srcdir}/mt7902-wifi-6.19.patch"
 
-  msg2 "Applying mt6639-wifi-init.patch..."
+  echo "Applying mt6639-wifi-init.patch..."
   patch -p1 < "${srcdir}/mt6639-wifi-init.patch"
 
-  msg2 "Applying mt6639-wifi-dma.patch..."
+  echo "Applying mt6639-wifi-dma.patch..."
   patch -p1 < "${srcdir}/mt6639-wifi-dma.patch"
 
   # Create Kbuild files for out-of-tree mt76 build
@@ -278,7 +278,7 @@ mt7925-common-y := mac.o mcu.o regd.o main.o init.o debugfs.o
 mt7925e-y := pci.o pci_mac.o pci_mcu.o
 EOF
 
-  msg2 "mt76 source prepared with MT7902 + MT7927 patches"
+  echo "mt76 source prepared with MT7902 + MT7927 patches"
 }
 
 package() {
