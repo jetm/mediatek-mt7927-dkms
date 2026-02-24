@@ -1,6 +1,8 @@
---- a/mt76_connac.h	2026-02-23 09:50:42.274644306 -0600
-+++ b/mt76_connac.h	2026-02-23 09:52:31.226381082 -0600
-@@ -174,7 +174,12 @@
+diff --git a/mt76_connac.h b/mt76_connac.h
+index 51423c7..fff498d 100644
+--- a/mt76_connac.h
++++ b/mt76_connac.h
+@@ -174,7 +174,12 @@ extern const struct wiphy_wowlan_support mt76_connac_wowlan_support;
  
  static inline bool is_mt7925(struct mt76_dev *dev)
  {
@@ -14,76 +16,19 @@
  }
  
  static inline bool is_mt7920(struct mt76_dev *dev)
-@@ -276,6 +281,7 @@
- 	switch (mt76_chip(dev)) {
- 	case 0x7961:
- 	case 0x7920:
-+	case 0x7927:
+@@ -279,6 +284,7 @@ static inline bool is_mt76_fw_txp(struct mt76_dev *dev)
  	case 0x7922:
  	case 0x7902:
  	case 0x7925:
-
---- a/mt792x.h	2026-02-23 09:50:42.274650006 -0600
-+++ b/mt792x.h	2026-02-23 09:52:54.843327827 -0600
-@@ -47,6 +47,9 @@
- #define MT7922_FIRMWARE_WM	"mediatek/WIFI_RAM_CODE_MT7922_1.bin"
- #define MT7925_FIRMWARE_WM	"mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin"
- 
-+#define MT7927_FIRMWARE_WM	"mediatek/mt7927/WIFI_RAM_CODE_MT6639_2_1.bin"
-+#define MT7927_ROM_PATCH	"mediatek/mt7927/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin"
-+
- #define MT7902_ROM_PATCH	"mediatek/WIFI_MT7902_patch_mcu_1_1_hdr.bin"
- #define MT7920_ROM_PATCH	"mediatek/WIFI_MT7961_patch_mcu_1a_2_hdr.bin"
- #define MT7921_ROM_PATCH	"mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin"
-@@ -458,6 +461,8 @@
- 		return MT7922_FIRMWARE_WM;
- 	case 0x7925:
- 		return MT7925_FIRMWARE_WM;
 +	case 0x7927:
-+		return MT7927_FIRMWARE_WM;
- 	default:
- 		return MT7921_FIRMWARE_WM;
- 	}
-@@ -474,6 +479,8 @@
- 		return MT7922_ROM_PATCH;
- 	case 0x7925:
- 		return MT7925_ROM_PATCH;
-+	case 0x7927:
-+		return MT7927_ROM_PATCH;
- 	default:
- 		return MT7921_ROM_PATCH;
- 	}
-
---- a/mt792x_regs.h	2026-02-23 09:50:42.274669706 -0600
-+++ b/mt792x_regs.h	2026-02-23 09:53:10.917291691 -0600
-@@ -486,4 +486,23 @@
- #define WFSYS_SW_RST_B			BIT(0)
- #define WFSYS_SW_INIT_DONE		BIT(4)
- 
-+/* CBInfra registers - MT6639/MT7927 combo chip */
-+#define MT_CBINFRA_WAKEPU_TOP		0xe01a0
-+#define MT_CBINFRA_WAKEPU_WF		0xe01a4
-+#define MT_CBINFRA_MISC0_REMAP_WF	0x1f6554
-+#define MT_CBINFRA_MISC0_REMAP_BT	0x1f6558
-+#define MT_CBINFRA_RGU_WF_RST		0x1f8600
-+#define MT_CBINFRA_RGU_WF_RST_WF_SUBSYS	BIT(4)
-+#define MT_CBINFRA_MCU_OWN_SET		0x1f5034
-+#define MT_CBINFRA_SLP_CTRL		0x1f5018
-+#define MT_ROMCODE_INDEX		0xc1604
-+#define MT_MCU_IDLE_VALUE		0x1d1e
-+#define MT_MCIF_REMAP_WF_1_BA		0xd1034
-+
-+/* CBInfra CBTOP remap values (from zouyonghao's working config) */
-+#define MT_CBINFRA_REMAP_WF_VAL	0x74037001
-+#define MT_CBINFRA_REMAP_BT_VAL	0x70007000
-+
-+#define MT_MCIF_REMAP_WF_1_BA_VAL	0x18051803
-+
- #endif /* __MT792X_REGS_H */
-
---- a/mt7925/pci.c	2026-02-23 09:50:42.274606306 -0600
-+++ b/mt7925/pci.c	2026-02-23 09:54:21.089142300 -0600
-@@ -16,6 +16,10 @@
+ 	case 0x7663:
+ 	case 0x7622:
+ 		return false;
+diff --git a/mt7925/pci.c b/mt7925/pci.c
+index c416175..2b3334e 100644
+--- a/mt7925/pci.c
++++ b/mt7925/pci.c
+@@ -16,6 +16,10 @@ static const struct pci_device_id mt7925_pci_device_table[] = {
  		.driver_data = (kernel_ulong_t)MT7925_FIRMWARE_WM },
  	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x0717),
  		.driver_data = (kernel_ulong_t)MT7925_FIRMWARE_WM },
@@ -94,7 +39,7 @@
  	{ },
  };
  
-@@ -266,6 +270,64 @@
+@@ -266,6 +270,60 @@ static int mt7925_dma_init(struct mt792x_dev *dev)
  	return mt792x_dma_enable(dev);
  }
  
@@ -140,8 +85,6 @@
 +
 +static void mt6639_cbtop_remap(struct mt792x_dev *dev)
 +{
-+	struct mt76_dev *mdev = &dev->mt76;
-+
 +	/* CONNINFRA wakeup - required before CBInfra register access */
 +	mt76_wr(dev, MT_CBINFRA_WAKEPU_TOP, 0x1);
 +	usleep_range(1000, 2000);
@@ -152,14 +95,12 @@
 +
 +	/* Readback to push writes */
 +	mt76_rr(dev, MT_CBINFRA_MISC0_REMAP_WF);
-+
-+	dev_info(mdev->dev, "MT6639 CBTOP remap configured\n");
 +}
 +
  static int mt7925_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *id)
  {
-@@ -310,6 +372,7 @@
+@@ -310,6 +368,7 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	struct mt76_bus_ops *bus_ops;
  	struct mt792x_dev *dev;
  	struct mt76_dev *mdev;
@@ -167,7 +108,7 @@
  	u8 features;
  	int ret;
  	u16 cmd;
-@@ -381,6 +444,8 @@
+@@ -381,24 +440,45 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	if (!mt7925_disable_aspm && mt76_pci_aspm_supported(pdev))
  		dev->aspm_supported = true;
  
@@ -176,33 +117,36 @@
  	ret = __mt792x_mcu_fw_pmctrl(dev);
  	if (ret)
  		goto err_free_dev;
-@@ -389,21 +454,42 @@
- 	if (ret)
- 		goto err_free_dev;
  
+-	ret = __mt792xe_mcu_drv_pmctrl(dev);
+-	if (ret)
+-		goto err_free_dev;
++	if (!is_mt6639_hw) {
++		ret = __mt792xe_mcu_drv_pmctrl(dev);
++		if (ret)
++			goto err_free_dev;
++	}
++
 +	if (is_mt6639_hw)
 +		mt6639_cbtop_remap(dev);
-+
+ 
  	mdev->rev = (mt76_rr(dev, MT_HW_CHIPID) << 16) |
  		    (mt76_rr(dev, MT_HW_REV) & 0xff);
  
  	dev_info(mdev->dev, "ASIC revision: %04x\n", mdev->rev);
  
 -	mt76_rmw_field(dev, MT_HW_EMI_CTL, MT_HW_EMI_CTL_SLPPROT_EN, 1);
--
++	/* Force chip ID for MT6639 hardware if CHIPID read returns garbage */
++	if (is_mt6639_hw && (mdev->rev >> 16) != 0x7927) {
++		dev_info(mdev->dev,
++			 "MT6639 raw CHIPID=0x%04x, forcing chip=0x7927\n",
++			 (u16)(mdev->rev >> 16));
++		mdev->rev = (0x7927 << 16) | (mdev->rev & 0xff);
++	}
+ 
 -	ret = mt792x_wfsys_reset(dev);
 -	if (ret)
 -		goto err_free_dev;
-+	/* Force chip ID for MT6639 hardware if CHIPID read returns garbage */
-+	if (is_mt6639_hw && (mdev->rev >> 16) != 0x7927) {
-+		u16 raw_chipid = mdev->rev >> 16;
-+
-+		dev_info(mdev->dev,
-+			 "MT6639 raw CHIPID=0x%04x, forcing chip=0x7927\n",
-+			 raw_chipid);
-+		mdev->rev = (0x7927 << 16) | (mdev->rev & 0xff);
-+	}
-+
 +	if (is_mt6639_hw) {
 +		ret = mt6639_chip_init(dev);
 +		if (ret)
@@ -216,16 +160,8 @@
 +	}
  
  	mt76_wr(dev, irq_map.host_irq_enable, 0);
--
- 	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
  
-+	if (is_mt6639_hw)
-+		dev_info(mdev->dev, "MT6639 chip init complete, starting DMA\n");
-+
- 	ret = devm_request_irq(mdev->dev, pdev->irq, mt792x_irq_handler,
- 			       IRQF_SHARED, KBUILD_MODNAME, dev);
- 	if (ret)
-@@ -633,6 +719,8 @@
+@@ -633,6 +713,8 @@ module_pci_driver(mt7925_pci_driver);
  MODULE_DEVICE_TABLE(pci, mt7925_pci_device_table);
  MODULE_FIRMWARE(MT7925_FIRMWARE_WM);
  MODULE_FIRMWARE(MT7925_ROM_PATCH);
@@ -234,3 +170,67 @@
  MODULE_AUTHOR("Deren Wu <deren.wu@mediatek.com>");
  MODULE_AUTHOR("Lorenzo Bianconi <lorenzo@kernel.org>");
  MODULE_DESCRIPTION("MediaTek MT7925E (PCIe) wireless driver");
+diff --git a/mt792x.h b/mt792x.h
+index 1f381ab..bb308f1 100644
+--- a/mt792x.h
++++ b/mt792x.h
+@@ -46,12 +46,14 @@
+ #define MT7921_FIRMWARE_WM	"mediatek/WIFI_RAM_CODE_MT7961_1.bin"
+ #define MT7922_FIRMWARE_WM	"mediatek/WIFI_RAM_CODE_MT7922_1.bin"
+ #define MT7925_FIRMWARE_WM	"mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin"
++#define MT7927_FIRMWARE_WM	"mediatek/mt7927/WIFI_RAM_CODE_MT6639_2_1.bin"
+ 
+ #define MT7902_ROM_PATCH	"mediatek/WIFI_MT7902_patch_mcu_1_1_hdr.bin"
+ #define MT7920_ROM_PATCH	"mediatek/WIFI_MT7961_patch_mcu_1a_2_hdr.bin"
+ #define MT7921_ROM_PATCH	"mediatek/WIFI_MT7961_patch_mcu_1_2_hdr.bin"
+ #define MT7922_ROM_PATCH	"mediatek/WIFI_MT7922_patch_mcu_1_1_hdr.bin"
+ #define MT7925_ROM_PATCH	"mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
++#define MT7927_ROM_PATCH	"mediatek/mt7927/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin"
+ 
+ #define MT792x_SDIO_HDR_TX_BYTES	GENMASK(15, 0)
+ #define MT792x_SDIO_HDR_PKT_TYPE	GENMASK(17, 16)
+@@ -458,6 +460,8 @@ static inline char *mt792x_ram_name(struct mt792x_dev *dev)
+ 		return MT7922_FIRMWARE_WM;
+ 	case 0x7925:
+ 		return MT7925_FIRMWARE_WM;
++	case 0x7927:
++		return MT7927_FIRMWARE_WM;
+ 	default:
+ 		return MT7921_FIRMWARE_WM;
+ 	}
+@@ -474,6 +478,8 @@ static inline char *mt792x_patch_name(struct mt792x_dev *dev)
+ 		return MT7922_ROM_PATCH;
+ 	case 0x7925:
+ 		return MT7925_ROM_PATCH;
++	case 0x7927:
++		return MT7927_ROM_PATCH;
+ 	default:
+ 		return MT7921_ROM_PATCH;
+ 	}
+diff --git a/mt792x_regs.h b/mt792x_regs.h
+index 7ddde92..2a93690 100644
+--- a/mt792x_regs.h
++++ b/mt792x_regs.h
+@@ -486,4 +486,22 @@
+ #define WFSYS_SW_RST_B			BIT(0)
+ #define WFSYS_SW_INIT_DONE		BIT(4)
+ 
++/* CBInfra registers - MT6639/MT7927 combo chip */
++#define MT_CBINFRA_WAKEPU_TOP		0xe01a0
++#define MT_CBINFRA_MISC0_REMAP_WF	0x1f6554
++#define MT_CBINFRA_MISC0_REMAP_BT	0x1f6558
++#define MT_CBINFRA_RGU_WF_RST		0x1f8600
++#define MT_CBINFRA_RGU_WF_RST_WF_SUBSYS	BIT(4)
++#define MT_CBINFRA_MCU_OWN_SET		0x1f5034
++#define MT_CBINFRA_SLP_CTRL		0x1f5018
++#define MT_ROMCODE_INDEX		0xc1604
++#define MT_MCU_IDLE_VALUE		0x1d1e
++#define MT_MCIF_REMAP_WF_1_BA		0xd1034
++
++/* CBInfra CBTOP remap values */
++#define MT_CBINFRA_REMAP_WF_VAL	0x74037001
++#define MT_CBINFRA_REMAP_BT_VAL	0x70007000
++
++#define MT_MCIF_REMAP_WF_1_BA_VAL	0x18051803
++
+ #endif /* __MT792X_REGS_H */
