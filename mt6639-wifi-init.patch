@@ -25,7 +25,7 @@ index 51423c7..fff498d 100644
  	case 0x7622:
  		return false;
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index c416175..2b3334e 100644
+index c416175..db053bd 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -16,6 +16,10 @@ static const struct pci_device_id mt7925_pci_device_table[] = {
@@ -104,17 +104,11 @@ index c416175..2b3334e 100644
  	struct mt76_bus_ops *bus_ops;
  	struct mt792x_dev *dev;
  	struct mt76_dev *mdev;
-+	bool is_mt6639_hw;
++	bool is_mt6639_hw = (pdev->device == 0x6639 || pdev->device == 0x7927);
  	u8 features;
  	int ret;
  	u16 cmd;
-@@ -381,24 +440,45 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
- 	if (!mt7925_disable_aspm && mt76_pci_aspm_supported(pdev))
- 		dev->aspm_supported = true;
- 
-+	is_mt6639_hw = (pdev->device == 0x6639 || pdev->device == 0x7927);
-+
- 	ret = __mt792x_mcu_fw_pmctrl(dev);
+@@ -385,20 +444,39 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	if (ret)
  		goto err_free_dev;
  
@@ -161,7 +155,7 @@ index c416175..2b3334e 100644
  
  	mt76_wr(dev, irq_map.host_irq_enable, 0);
  
-@@ -633,6 +713,8 @@ module_pci_driver(mt7925_pci_driver);
+@@ -633,6 +711,8 @@ module_pci_driver(mt7925_pci_driver);
  MODULE_DEVICE_TABLE(pci, mt7925_pci_device_table);
  MODULE_FIRMWARE(MT7925_FIRMWARE_WM);
  MODULE_FIRMWARE(MT7925_ROM_PATCH);
@@ -208,7 +202,7 @@ index 1f381ab..bb308f1 100644
  		return MT7921_ROM_PATCH;
  	}
 diff --git a/mt792x_regs.h b/mt792x_regs.h
-index 7ddde92..2a93690 100644
+index 7ddde92..d831713 100644
 --- a/mt792x_regs.h
 +++ b/mt792x_regs.h
 @@ -486,4 +486,22 @@
@@ -228,8 +222,8 @@ index 7ddde92..2a93690 100644
 +#define MT_MCIF_REMAP_WF_1_BA		0xd1034
 +
 +/* CBInfra CBTOP remap values */
-+#define MT_CBINFRA_REMAP_WF_VAL	0x74037001
-+#define MT_CBINFRA_REMAP_BT_VAL	0x70007000
++#define MT_CBINFRA_REMAP_WF_VAL		0x74037001
++#define MT_CBINFRA_REMAP_BT_VAL		0x70007000
 +
 +#define MT_MCIF_REMAP_WF_1_BA_VAL	0x18051803
 +

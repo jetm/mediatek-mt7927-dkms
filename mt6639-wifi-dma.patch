@@ -1,5 +1,5 @@
 diff --git a/mt7925/init.c b/mt7925/init.c
-index 3ce5d6f..d0675d7 100644
+index 3ce5d6f..d501a82 100644
 --- a/mt7925/init.c
 +++ b/mt7925/init.c
 @@ -115,6 +115,18 @@ static int __mt7925_init_hardware(struct mt792x_dev *dev)
@@ -21,18 +21,77 @@ index 3ce5d6f..d0675d7 100644
  out:
  	return ret;
  }
-@@ -230,7 +242,10 @@ int mt7925_register_device(struct mt792x_dev *dev)
- 	dev->pm.idle_timeout = MT792x_PM_TIMEOUT;
- 	dev->pm.stats.last_wake_event = jiffies;
- 	dev->pm.stats.last_doze_event = jiffies;
--	if (!mt76_is_usb(&dev->mt76)) {
-+	/* MT6639: disable power management. Every CLR_OWN triggers the
-+	 * ROM to reinitialize WFDMA, destroying DMA ring configuration.
-+	 * Keep the device awake until the PM wake path handles MT6639. */
-+	if (!mt76_is_usb(&dev->mt76) && !is_mt6639(&dev->mt76)) {
- 		dev->pm.enable_user = true;
- 		dev->pm.enable = true;
- 		dev->pm.ds_enable_user = true;
+diff --git a/mt7925/main.c b/mt7925/main.c
+index 2d358a9..4a930c1 100644
+--- a/mt7925/main.c
++++ b/mt7925/main.c
+@@ -183,6 +183,10 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
+ 		IEEE80211_EHT_PHY_CAP0_SU_BEAMFORMER |
+ 		IEEE80211_EHT_PHY_CAP0_SU_BEAMFORMEE;
+ 
++	if (band == NL80211_BAND_6GHZ)
++		eht_cap_elem->phy_cap_info[0] |=
++			IEEE80211_EHT_PHY_CAP0_320MHZ_IN_6GHZ;
++
+ 	eht_cap_elem->phy_cap_info[0] |=
+ 		u8_encode_bits(u8_get_bits(sts - 1, BIT(0)),
+ 			       IEEE80211_EHT_PHY_CAP0_BEAMFORMEE_SS_80MHZ_MASK);
+@@ -193,10 +197,20 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
+ 		u8_encode_bits(sts - 1,
+ 			       IEEE80211_EHT_PHY_CAP1_BEAMFORMEE_SS_160MHZ_MASK);
+ 
++	if (band == NL80211_BAND_6GHZ)
++		eht_cap_elem->phy_cap_info[1] |=
++			u8_encode_bits(sts - 1,
++				       IEEE80211_EHT_PHY_CAP1_BEAMFORMEE_SS_320MHZ_MASK);
++
+ 	eht_cap_elem->phy_cap_info[2] =
+ 		u8_encode_bits(sts - 1, IEEE80211_EHT_PHY_CAP2_SOUNDING_DIM_80MHZ_MASK) |
+ 		u8_encode_bits(sts - 1, IEEE80211_EHT_PHY_CAP2_SOUNDING_DIM_160MHZ_MASK);
+ 
++	if (band == NL80211_BAND_6GHZ)
++		eht_cap_elem->phy_cap_info[2] |=
++			u8_encode_bits(sts - 1,
++				       IEEE80211_EHT_PHY_CAP2_SOUNDING_DIM_320MHZ_MASK);
++
+ 	eht_cap_elem->phy_cap_info[3] =
+ 		IEEE80211_EHT_PHY_CAP3_NG_16_SU_FEEDBACK |
+ 		IEEE80211_EHT_PHY_CAP3_NG_16_MU_FEEDBACK |
+@@ -217,7 +231,8 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
+ 		u8_encode_bits(u8_get_bits(0x11, GENMASK(1, 0)),
+ 			       IEEE80211_EHT_PHY_CAP5_MAX_NUM_SUPP_EHT_LTF_MASK);
+ 
+-	val = width == NL80211_CHAN_WIDTH_160 ? 0x7 :
++	val = width == NL80211_CHAN_WIDTH_320 ? 0xf :
++	      width == NL80211_CHAN_WIDTH_160 ? 0x7 :
+ 	      width == NL80211_CHAN_WIDTH_80 ? 0x3 : 0x1;
+ 	eht_cap_elem->phy_cap_info[6] =
+ 		u8_encode_bits(u8_get_bits(0x11, GENMASK(4, 2)),
+@@ -230,6 +245,11 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
+ 		IEEE80211_EHT_PHY_CAP7_MU_BEAMFORMER_80MHZ |
+ 		IEEE80211_EHT_PHY_CAP7_MU_BEAMFORMER_160MHZ;
+ 
++	if (band == NL80211_BAND_6GHZ)
++		eht_cap_elem->phy_cap_info[7] |=
++			IEEE80211_EHT_PHY_CAP7_NON_OFDMA_UL_MU_MIMO_320MHZ |
++			IEEE80211_EHT_PHY_CAP7_MU_BEAMFORMER_320MHZ;
++
+ 	val = u8_encode_bits(nss, IEEE80211_EHT_MCS_NSS_RX) |
+ 	      u8_encode_bits(nss, IEEE80211_EHT_MCS_NSS_TX);
+ 
+@@ -239,6 +259,12 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
+ 	eht_nss->bw._160.rx_tx_mcs9_max_nss = val;
+ 	eht_nss->bw._160.rx_tx_mcs11_max_nss = val;
+ 	eht_nss->bw._160.rx_tx_mcs13_max_nss = val;
++
++	if (band == NL80211_BAND_6GHZ) {
++		eht_nss->bw._320.rx_tx_mcs9_max_nss = val;
++		eht_nss->bw._320.rx_tx_mcs11_max_nss = val;
++		eht_nss->bw._320.rx_tx_mcs13_max_nss = val;
++	}
+ }
+ 
+ int mt7925_init_mlo_caps(struct mt792x_phy *phy)
 diff --git a/mt7925/mcu.c b/mt7925/mcu.c
 index cf0fdea..8b5ffb2 100644
 --- a/mt7925/mcu.c
@@ -64,10 +123,10 @@ index 6b9bf1b..d476b13 100644
  	MODE_OPEN = 0,
  	MODE_SHARED = 1,
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index 2b3334e..f27f329 100644
+index db053bd..27f1c0b 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
-@@ -324,6 +324,127 @@ static void mt6639_cbtop_remap(struct mt792x_dev *dev)
+@@ -324,6 +324,126 @@ static void mt6639_cbtop_remap(struct mt792x_dev *dev)
  	mt76_rr(dev, MT_CBINFRA_MISC0_REMAP_WF);
  }
  
@@ -163,9 +222,8 @@ index 2b3334e..f27f329 100644
 +	napi_enable(&dev->mt76.tx_napi);
 +
 +	/* MT6639-specific GLO_CFG bits before DMA enable */
-+	mt76_set(dev, MT_WFDMA0_GLO_CFG, BIT(26));   /* ADDR_EXT_EN */
-+	mt76_clear(dev, MT_WFDMA0_GLO_CFG, BIT(20)); /* CSR_LBK_RX_Q_SEL_EN */
-+	mt76_set(dev, MT_WFDMA0_GLO_CFG_EXT1, BIT(28));
++	mt76_set(dev, MT_WFDMA0_GLO_CFG, MT_WFDMA0_GLO_CFG_ADDR_EXT_EN);
++	mt76_clear(dev, MT_WFDMA0_GLO_CFG, MT_WFDMA0_GLO_CFG_CSR_LBK_RX_Q_SEL_EN);
 +	mt76_set(dev, MT_WFDMA0_GLO_CFG,
 +		 MT_WFDMA0_GLO_CFG_FW_DWLD_BYPASS_DMASHDL);
 +
@@ -195,7 +253,7 @@ index 2b3334e..f27f329 100644
  static int mt7925_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *id)
  {
-@@ -406,6 +527,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -406,6 +526,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  		goto err_free_pci_vec;
  	}
  
@@ -212,7 +270,7 @@ index 2b3334e..f27f329 100644
  	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), ops, &drv_ops);
  	if (!mdev) {
  		ret = -ENOMEM;
-@@ -417,7 +548,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -417,7 +547,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	dev = container_of(mdev, struct mt792x_dev, mt76);
  	dev->fw_features = features;
  	dev->hif_ops = &mt7925_pcie_ops;
@@ -224,7 +282,7 @@ index 2b3334e..f27f329 100644
  	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
  	tasklet_init(&mdev->irq_tasklet, mt792x_irq_tasklet, (unsigned long)dev);
  
-@@ -489,7 +623,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -487,7 +620,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	if (ret)
  		goto err_free_dev;
  
@@ -236,7 +294,7 @@ index 2b3334e..f27f329 100644
  	if (ret)
  		goto err_free_irq;
  
-@@ -629,7 +766,10 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
+@@ -627,7 +763,10 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
  	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
  	mt76_connac_irq_enable(&dev->mt76,
  			       dev->irq_map->tx.all_complete_mask |
@@ -311,7 +369,7 @@ index 6cceff8..83f1723 100644
  	mt76_rmw_field(dev, MT_PCIE_MAC_PM, MT_PCIE_MAC_PM_L0S_DIS, 1);
  
 diff --git a/mt792x_dma.c b/mt792x_dma.c
-index 002aece..6c3d952 100644
+index 002aece..04c0663 100644
 --- a/mt792x_dma.c
 +++ b/mt792x_dma.c
 @@ -90,7 +90,23 @@ EXPORT_SYMBOL_GPL(mt792x_rx_poll_complete);
@@ -339,11 +397,37 @@ index 002aece..6c3d952 100644
  		/* rx ring */
  		mt76_wr(dev, MT_WFDMA0_RX_RING0_EXT_CTRL, PREFETCH(0x0000, 0x4));
  		mt76_wr(dev, MT_WFDMA0_RX_RING1_EXT_CTRL, PREFETCH(0x0040, 0x4));
+@@ -166,6 +182,13 @@ int mt792x_dma_enable(struct mt792x_dev *dev)
+ 	mt76_set(dev, MT_WFDMA0_GLO_CFG,
+ 		 MT_WFDMA0_GLO_CFG_TX_DMA_EN | MT_WFDMA0_GLO_CFG_RX_DMA_EN);
+ 
++	if (is_mt6639(&dev->mt76)) {
++		mt76_set(dev, MT_WFDMA0_GLO_CFG,
++			 MT_WFDMA0_GLO_CFG_ADDR_EXT_EN);
++		mt76_clear(dev, MT_WFDMA0_GLO_CFG,
++			   MT_WFDMA0_GLO_CFG_CSR_LBK_RX_Q_SEL_EN);
++	}
++
+ 	if (is_mt7925(&dev->mt76)) {
+ 		mt76_rmw(dev, MT_UWFDMA0_GLO_CFG_EXT1, BIT(28), BIT(28));
+ 		mt76_set(dev, MT_WFDMA0_INT_RX_PRI, 0x0F00);
 diff --git a/mt792x_regs.h b/mt792x_regs.h
-index 2a93690..658c757 100644
+index d831713..621b6b3 100644
 --- a/mt792x_regs.h
 +++ b/mt792x_regs.h
-@@ -365,6 +365,16 @@
+@@ -301,9 +301,11 @@
+ #define MT_WFDMA0_GLO_CFG_FIFO_LITTLE_ENDIAN	BIT(12)
+ #define MT_WFDMA0_GLO_CFG_RX_WB_DDONE	BIT(13)
+ #define MT_WFDMA0_GLO_CFG_CSR_DISP_BASE_PTR_CHAIN_EN BIT(15)
++#define MT_WFDMA0_GLO_CFG_CSR_LBK_RX_Q_SEL_EN	BIT(20)
+ #define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2	BIT(21)
+ #define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO	BIT(27)
+ #define MT_WFDMA0_GLO_CFG_OMIT_TX_INFO	BIT(28)
++#define MT_WFDMA0_GLO_CFG_ADDR_EXT_EN		BIT(26)
+ #define MT_WFDMA0_GLO_CFG_CLK_GAT_DIS	BIT(30)
+ 
+ #define HOST_RX_DONE_INT_ENA0		BIT(0)
+@@ -365,6 +367,13 @@
  #define MT_WFDMA_EXT_CSR_HIF_MISC	MT_WFDMA_EXT_CSR(0x44)
  #define MT_WFDMA_EXT_CSR_HIF_MISC_BUSY	BIT(0)
  
@@ -353,9 +437,6 @@ index 2a93690..658c757 100644
 +#define MT_WFDMA_PREFETCH_CFG1		MT_WFDMA_EXT_CSR(0xf4)
 +#define MT_WFDMA_PREFETCH_CFG2		MT_WFDMA_EXT_CSR(0xf8)
 +#define MT_WFDMA_PREFETCH_CFG3		MT_WFDMA_EXT_CSR(0xfc)
-+
-+/* MT6639 GLO_CFG extended register */
-+#define MT_WFDMA0_GLO_CFG_EXT1		MT_WFDMA0(0x2b4)
 +
  #define MT_SWDEF_BASE			0x41f200
  #define MT_SWDEF(ofs)			(MT_SWDEF_BASE + (ofs))
