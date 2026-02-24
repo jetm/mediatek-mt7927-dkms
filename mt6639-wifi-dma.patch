@@ -1,24 +1,27 @@
 diff --git a/mt7925/init.c b/mt7925/init.c
-index 3ce5d6f..513fdaa 100644
+index 3ce5d6f..d0675d7 100644
 --- a/mt7925/init.c
 +++ b/mt7925/init.c
-@@ -115,6 +115,15 @@ static int __mt7925_init_hardware(struct mt792x_dev *dev)
+@@ -115,6 +115,18 @@ static int __mt7925_init_hardware(struct mt792x_dev *dev)
  	if (ret)
  		goto out;
  
 +	/* MT6639: Enable DBDC (dual-band) mode. Without this, firmware
-+	 * stays on 2.4GHz only and ignores 5GHz scan requests. */
++	 * defaults to 2.4GHz only and ignores 5GHz scan requests.
++	 * MT7925 firmware handles DBDC automatically. */
 +	if (is_mt6639(&dev->mt76)) {
 +		ret = mt7925_mcu_set_dbdc(&dev->mphy, true);
-+		if (ret)
++		if (ret) {
 +			dev_warn(dev->mt76.dev,
 +				 "MT6639 DBDC enable failed: %d\n", ret);
++			ret = 0;
++		}
 +	}
 +
  out:
  	return ret;
  }
-@@ -230,7 +239,10 @@ int mt7925_register_device(struct mt792x_dev *dev)
+@@ -230,7 +242,10 @@ int mt7925_register_device(struct mt792x_dev *dev)
  	dev->pm.idle_timeout = MT792x_PM_TIMEOUT;
  	dev->pm.stats.last_wake_event = jiffies;
  	dev->pm.stats.last_doze_event = jiffies;
@@ -30,6 +33,18 @@ index 3ce5d6f..513fdaa 100644
  		dev->pm.enable_user = true;
  		dev->pm.enable = true;
  		dev->pm.ds_enable_user = true;
+diff --git a/mt7925/mcu.c b/mt7925/mcu.c
+index cf0fdea..8b5ffb2 100644
+--- a/mt7925/mcu.c
++++ b/mt7925/mcu.c
+@@ -1683,6 +1683,7 @@ mt7925_mcu_sta_eht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
+ 		memcpy(eht->mcs_map_bw20, &mcs_map->only_20mhz, sizeof(eht->mcs_map_bw20));
+ 	memcpy(eht->mcs_map_bw80, &mcs_map->bw._80, sizeof(eht->mcs_map_bw80));
+ 	memcpy(eht->mcs_map_bw160, &mcs_map->bw._160, sizeof(eht->mcs_map_bw160));
++	memcpy(eht->mcs_map_bw320, &mcs_map->bw._320, sizeof(eht->mcs_map_bw320));
+ }
+ 
+ static void
 diff --git a/mt7925/mt7925.h b/mt7925/mt7925.h
 index 6b9bf1b..d476b13 100644
 --- a/mt7925/mt7925.h
@@ -49,11 +64,11 @@ index 6b9bf1b..d476b13 100644
  	MODE_OPEN = 0,
  	MODE_SHARED = 1,
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index 7e80061..ba63564 100644
+index 2b3334e..f27f329 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
-@@ -270,6 +270,132 @@ static int mt7925_dma_init(struct mt792x_dev *dev)
- 	return mt792x_dma_enable(dev);
+@@ -324,6 +324,127 @@ static void mt6639_cbtop_remap(struct mt792x_dev *dev)
+ 	mt76_rr(dev, MT_CBINFRA_MISC0_REMAP_WF);
  }
  
 +static int mt6639_dma_init(struct mt792x_dev *dev)
@@ -62,14 +77,8 @@ index 7e80061..ba63564 100644
 +
 +	mt76_dma_attach(&dev->mt76);
 +
-+	/* The probe did SET_OWN before CBTOP remap but skipped CLR_OWN
-+	 * for MT6639 (the ROM tries to init WFDMA during CLR_OWN, which
-+	 * fails without proper address mapping). Now that CBTOP and
-+	 * CBInfra are ready, do the full SET_OWN -> CLR_OWN transition.
-+	 * SET_OWN is redundant (probe already did it) but ensures FW-own
-+	 * state. CLR_OWN triggers the ROM to initialize WFDMA properly.
-+	 * The SET_OWN/CLR_OWN in mt7925e_mcu_init is also skipped for
-+	 * MT6639 to avoid wiping this DMA configuration later. */
++	/* Do SET_OWN -> CLR_OWN now that CBTOP and CBInfra are ready.
++	 * CLR_OWN triggers the ROM to initialize WFDMA properly. */
 +	ret = mt792xe_mcu_fw_pmctrl(dev);
 +	if (ret)
 +		return ret;
@@ -81,8 +90,7 @@ index 7e80061..ba63564 100644
 +	/* Clear pending interrupts from previous state */
 +	mt76_wr(dev, MT_WFDMA0_HOST_INT_STA, ~0);
 +
-+	/* Disable DMA - reference style. Also clear chain_en and omit
-+	 * bits that the reference driver clears before logic reset. */
++	/* Disable DMA */
 +	mt76_clear(dev, MT_WFDMA0_GLO_CFG,
 +		   MT_WFDMA0_GLO_CFG_TX_DMA_EN |
 +		   MT_WFDMA0_GLO_CFG_RX_DMA_EN |
@@ -96,18 +104,13 @@ index 7e80061..ba63564 100644
 +				 MT_WFDMA0_GLO_CFG_RX_DMA_BUSY, 0, 100, 1))
 +		return -ETIMEDOUT;
 +
-+	/* Skip logic reset - the ROM's CLR_OWN leaves RST BIT(4)|BIT(5)
-+	 * set and the WFDMA in a working state. Any logic reset pulse
-+	 * (clear->set or set->clear) disrupts this. The "skip reset"
-+	 * approach was the only build where DIDX advanced. */
-+
 +	/* Reset DMA descriptor pointers */
 +	mt76_wr(dev, MT_WFDMA0_RST_DTX_PTR, ~0);
 +	mt76_wr(dev, MT_WFDMA0_RST_DRX_PTR, ~0);
 +	wmb();
 +	msleep(10);
 +
-+	/* init tx queue - ring 0, same as MT7925 */
++	/* init tx queue - ring 0 */
 +	ret = mt76_connac_init_tx_queues(dev->phy.mt76, MT7925_TXQ_BAND0,
 +					 MT7925_TX_RING_SIZE,
 +					 MT_TX_RING_BASE, NULL, 0);
@@ -116,14 +119,14 @@ index 7e80061..ba63564 100644
 +
 +	mt76_wr(dev, MT_WFDMA0_TX_RING0_EXT_CTRL, 0x4);
 +
-+	/* command to WM - ring 15, same as MT7925 */
++	/* command to WM - ring 15 */
 +	ret = mt76_init_mcu_queue(&dev->mt76, MT_MCUQ_WM,
 +				  MT7925_TXQ_MCU_WM,
 +				  MT7925_TX_MCU_RING_SIZE, MT_TX_RING_BASE);
 +	if (ret)
 +		return ret;
 +
-+	/* firmware download - ring 16, same as MT7925 */
++	/* firmware download - ring 16 */
 +	ret = mt76_init_mcu_queue(&dev->mt76, MT_MCUQ_FWDL,
 +				  MT7925_TXQ_FWDL,
 +				  MT7925_TX_FWDL_RING_SIZE, MT_TX_RING_BASE);
@@ -144,7 +147,7 @@ index 7e80061..ba63564 100644
 +	if (ret)
 +		return ret;
 +
-+	/* rx auxiliary - ring 7: management frames (auth/assoc/beacons) */
++	/* rx auxiliary - ring 7: management frames */
 +	ret = mt76_queue_alloc(dev, &dev->mt76.q_rx[MT_RXQ_MCU_WA],
 +			       MT6639_RXQ_DATA2, MT7925_RX_MCU_RING_SIZE,
 +			       MT_RX_BUF_SIZE, MT_RX_DATA_RING_BASE);
@@ -159,11 +162,7 @@ index 7e80061..ba63564 100644
 +			  mt792x_poll_tx);
 +	napi_enable(&dev->mt76.tx_napi);
 +
-+	/* Pre-configure MT6639 GLO_CFG before DMA enable. The reference
-+	 * driver sets all GLO_CFG bits in a single write including
-+	 * DMA_EN. Our mt792x_dma_enable() enables DMA in a separate
-+	 * step, so set MT6639-specific bits first to avoid running DMA
-+	 * with incomplete configuration. */
++	/* MT6639-specific GLO_CFG bits before DMA enable */
 +	mt76_set(dev, MT_WFDMA0_GLO_CFG, BIT(26));   /* ADDR_EXT_EN */
 +	mt76_clear(dev, MT_WFDMA0_GLO_CFG, BIT(20)); /* CSR_LBK_RX_Q_SEL_EN */
 +	mt76_set(dev, MT_WFDMA0_GLO_CFG_EXT1, BIT(28));
@@ -174,21 +173,12 @@ index 7e80061..ba63564 100644
 +	if (ret)
 +		return ret;
 +
-+	/* Enable interrupts synchronously - the mt76 framework defers
-+	 * the HOST_INT_ENA write to the IRQ tasklet, which can't run
-+	 * until the first interrupt fires. */
++	/* Enable interrupts synchronously */
 +	mt76_wr(dev, MT_WFDMA0_HOST_INT_ENA, dev->mt76.mmio.irqmask);
 +
 +	return 0;
 +}
 +
- static int mt6639_chip_init(struct mt792x_dev *dev)
- {
- 	struct mt76_dev *mdev = &dev->mt76;
-@@ -328,6 +454,19 @@ static void mt6639_cbtop_remap(struct mt792x_dev *dev)
- 	dev_info(mdev->dev, "MT6639 CBTOP remap configured\n");
- }
- 
 +static const struct mt792x_irq_map mt6639_irq_map = {
 +	.host_irq_enable = MT_WFDMA0_HOST_INT_ENA,
 +	.tx = {
@@ -205,7 +195,7 @@ index 7e80061..ba63564 100644
  static int mt7925_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *id)
  {
-@@ -410,6 +549,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -406,6 +527,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  		goto err_free_pci_vec;
  	}
  
@@ -222,52 +212,19 @@ index 7e80061..ba63564 100644
  	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), ops, &drv_ops);
  	if (!mdev) {
  		ret = -ENOMEM;
-@@ -421,7 +570,6 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -417,7 +548,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	dev = container_of(mdev, struct mt792x_dev, mt76);
  	dev->fw_features = features;
  	dev->hif_ops = &mt7925_pcie_ops;
 -	dev->irq_map = &irq_map;
- 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
- 	tasklet_init(&mdev->irq_tasklet, mt792x_irq_tasklet, (unsigned long)dev);
- 
-@@ -446,13 +594,24 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
- 
- 	is_mt6639_hw = (pdev->device == 0x6639 || pdev->device == 0x7927);
- 
 +	if (is_mt6639_hw)
 +		dev->irq_map = &mt6639_irq_map;
 +	else
 +		dev->irq_map = &irq_map;
-+
- 	ret = __mt792x_mcu_fw_pmctrl(dev);
- 	if (ret)
- 		goto err_free_dev;
+ 	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
+ 	tasklet_init(&mdev->irq_tasklet, mt792x_irq_tasklet, (unsigned long)dev);
  
--	ret = __mt792xe_mcu_drv_pmctrl(dev);
--	if (ret)
--		goto err_free_dev;
-+	/* MT6639: skip early CLR_OWN. The ROM tries to init WFDMA during
-+	 * CLR_OWN but CBTOP remap isn't configured yet, so the WFDMA
-+	 * init fails and leaves hardware in a broken state. The proper
-+	 * CLR_OWN happens in mt6639_dma_init() after CBTOP and CBInfra. */
-+	if (!is_mt6639_hw) {
-+		ret = __mt792xe_mcu_drv_pmctrl(dev);
-+		if (ret)
-+			goto err_free_dev;
-+	}
- 
- 	if (is_mt6639_hw)
- 		mt6639_cbtop_remap(dev);
-@@ -484,7 +643,7 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
- 			goto err_free_dev;
- 	}
- 
--	mt76_wr(dev, irq_map.host_irq_enable, 0);
-+	mt76_wr(dev, dev->irq_map->host_irq_enable, 0);
- 	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
- 
- 	if (is_mt6639_hw)
-@@ -495,7 +654,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -489,7 +623,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	if (ret)
  		goto err_free_dev;
  
@@ -279,8 +236,51 @@ index 7e80061..ba63564 100644
  	if (ret)
  		goto err_free_irq;
  
+@@ -629,7 +766,10 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
+ 	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
+ 	mt76_connac_irq_enable(&dev->mt76,
+ 			       dev->irq_map->tx.all_complete_mask |
+-			       MT_INT_RX_DONE_ALL | MT_INT_MCU_CMD);
++			       dev->irq_map->rx.data_complete_mask |
++			       dev->irq_map->rx.wm_complete_mask |
++			       dev->irq_map->rx.wm2_complete_mask |
++			       MT_INT_MCU_CMD);
+ 	mt76_set(dev, MT_MCU2HOST_SW_INT_ENA, MT_MCU_CMD_WAKE_RX_PCIE);
+ 
+ 	/* put dma enabled */
+diff --git a/mt7925/pci_mac.c b/mt7925/pci_mac.c
+index 3072850..9c66e48 100644
+--- a/mt7925/pci_mac.c
++++ b/mt7925/pci_mac.c
+@@ -72,6 +72,14 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
+ 	const struct mt792x_irq_map *irq_map = dev->irq_map;
+ 	int i, err;
+ 
++	/* MT6639: CLR_OWN and WPDMA reset destroy DMA ring configuration.
++	 * A full reset requires re-running mt6639_dma_init() which is not
++	 * yet implemented in the recovery path. */
++	if (is_mt6639(&dev->mt76)) {
++		dev_warn(dev->mt76.dev, "MT6639 mac_reset not supported, reload module to recover\n");
++		return -EOPNOTSUPP;
++	}
++
+ 	mt792xe_mcu_drv_pmctrl(dev);
+ 
+ 	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
+@@ -118,7 +126,10 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
+ 
+ 	mt76_wr(dev, dev->irq_map->host_irq_enable,
+ 		dev->irq_map->tx.all_complete_mask |
+-		MT_INT_RX_DONE_ALL | MT_INT_MCU_CMD);
++		dev->irq_map->rx.data_complete_mask |
++		dev->irq_map->rx.wm_complete_mask |
++		dev->irq_map->rx.wm2_complete_mask |
++		MT_INT_MCU_CMD);
+ 	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
+ 
+ 	err = mt792xe_mcu_fw_pmctrl(dev);
 diff --git a/mt7925/pci_mcu.c b/mt7925/pci_mcu.c
-index 6cceff8..17675dc 100644
+index 6cceff8..83f1723 100644
 --- a/mt7925/pci_mcu.c
 +++ b/mt7925/pci_mcu.c
 @@ -35,13 +35,20 @@ int mt7925e_mcu_init(struct mt792x_dev *dev)
@@ -291,10 +291,10 @@ index 6cceff8..17675dc 100644
 -	if (err)
 -		return err;
 +	if (is_mt6639(&dev->mt76)) {
-+		/* MT6639: CLR_OWN was already done in mt6639_dma_init
-+		 * before DMA ring setup. The ROM re-initializes WFDMA on
-+		 * CLR_OWN, wiping ring and prefetch config. Skip the
-+		 * SET_OWN/CLR_OWN cycle here to preserve DMA state. */
++		/* MT6639: CLR_OWN was already done in mt6639_dma_init().
++		 * The ROM re-initializes WFDMA on every CLR_OWN, wiping
++		 * ring and prefetch config. Skip SET_OWN/CLR_OWN here
++		 * to preserve DMA state. */
 +	} else {
 +		err = mt792xe_mcu_fw_pmctrl(dev);
 +		if (err)
@@ -340,7 +340,7 @@ index 002aece..6c3d952 100644
  		mt76_wr(dev, MT_WFDMA0_RX_RING0_EXT_CTRL, PREFETCH(0x0000, 0x4));
  		mt76_wr(dev, MT_WFDMA0_RX_RING1_EXT_CTRL, PREFETCH(0x0040, 0x4));
 diff --git a/mt792x_regs.h b/mt792x_regs.h
-index aee87ef..3e87a4a 100644
+index 2a93690..658c757 100644
 --- a/mt792x_regs.h
 +++ b/mt792x_regs.h
 @@ -365,6 +365,16 @@
