@@ -1,5 +1,5 @@
 _pkgname=mediatek-mt7927
-_pkgver=1.0
+_pkgver=2.0
 
 post_install() {
   dkms add "${_pkgname}/${_pkgver}"

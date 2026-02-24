@@ -74,7 +74,7 @@ MAKEFILE
 
 echo "==> Bluetooth source prepared (btusb + btmtk)"
 
-# --- WiFi: mt76 source is pre-patched, nothing to download ---
+# --- WiFi: mt76 source is pre-patched (mt7902-wifi-6.19.patch + mt6639-wifi-init.patch) ---
 
 echo "==> WiFi mt76 source already patched and included"
 echo "==> Source prepared for compilation (btusb + btmtk + mt76 + mt7921e + mt7925e)"
