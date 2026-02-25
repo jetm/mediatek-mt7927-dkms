@@ -133,7 +133,7 @@ index 6b9bf1b..d476b13 100644
  	MODE_OPEN = 0,
  	MODE_SHARED = 1,
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index db053bd..27f1c0b 100644
+index db053bd..68383ac 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -324,6 +324,126 @@ static void mt6639_cbtop_remap(struct mt792x_dev *dev)
@@ -263,7 +263,23 @@ index db053bd..27f1c0b 100644
  static int mt7925_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *id)
  {
-@@ -406,6 +526,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -396,7 +516,14 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+ 	if (ret)
+ 		goto err_free_pci_vec;
+
+-	if (mt7925_disable_aspm)
++	/* MT6639 CONNINFRA power domain and WFDMA register access are
++	 * unreliable with PCIe L1 active, causing throughput to drop
++	 * from 1+ Gbps to ~200 Mbps.  Disable ASPM unconditionally
++	 * rather than only L1, since L0s savings are negligible for
++	 * a PCIe WLAN card and mt76_pci_disable_aspm() already
++	 * handles both device and parent bridge in one call.
++	 */
++	if (mt7925_disable_aspm || is_mt6639_hw)
+ 		mt76_pci_disable_aspm(pdev);
+
+ 	ops = mt792x_get_mac80211_ops(&pdev->dev, &mt7925_ops,
+@@ -406,6 +533,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  		goto err_free_pci_vec;
  	}
  
@@ -280,7 +296,7 @@ index db053bd..27f1c0b 100644
  	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), ops, &drv_ops);
  	if (!mdev) {
  		ret = -ENOMEM;
-@@ -417,7 +547,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -417,7 +554,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	dev = container_of(mdev, struct mt792x_dev, mt76);
  	dev->fw_features = features;
  	dev->hif_ops = &mt7925_pcie_ops;
@@ -292,7 +308,7 @@ index db053bd..27f1c0b 100644
  	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
  	tasklet_init(&mdev->irq_tasklet, mt792x_irq_tasklet, (unsigned long)dev);
  
-@@ -487,7 +620,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -487,7 +627,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	if (ret)
  		goto err_free_dev;
  
@@ -304,7 +320,7 @@ index db053bd..27f1c0b 100644
  	if (ret)
  		goto err_free_irq;
  
-@@ -627,7 +763,10 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
+@@ -627,7 +770,10 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
  	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
  	mt76_connac_irq_enable(&dev->mt76,
  			       dev->irq_map->tx.all_complete_mask |
