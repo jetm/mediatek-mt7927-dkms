@@ -16,6 +16,7 @@
 #   - ASUS ROG Zephyrus G14          (aftermarket MT7927 swap)
 #   - TP-Link Archer TBE550E PCIe    (E-key MT7927, extractable for laptop use)
 #   - ASUS ProArt X870E              (WiFi PCI 14c3:7927)
+#   - ASUS X870E-E                   (BT USB 13d3:3588, WiFi PCI 14c3:7927)
 #
 # MediaTek naming is confusing. Here's the map:
 #   MT7927 = combo module on the motherboard (WiFi 7 + BT 5.4, Filogic 380)
@@ -39,7 +40,7 @@
 
 pkgname=mediatek-mt7927-dkms
 pkgver=2.1
-pkgrel=5
+pkgrel=6
 # Keywords: MT7927 MT7925 MT6639 MT7902 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
 pkgdesc="DKMS Bluetooth (MT6639) and WiFi (MT7925e/MT7902) modules for MediaTek MT7927 Filogic 380"
 arch=('x86_64')
@@ -70,7 +71,7 @@ source=(
   'dkms.conf'
   'dkms-patchmodule.sh'
 )
-sha256sums=('c4187bd88174a96f6ec912963be2a472bc77989d368f6eda28fc40b04747d64f'
+sha256sums=('db77b8340f541ad5791e987eaa783d150cbe8d33728be3bbaf014d28c957c479'
             '736d3fcd477e380a1b3e9f2a3d424ec4473535ead44e8c8ac8f515d886b8fdfa'
             'a54284178855f1a9120d3d36f76a60cb83491097da86eb316b4f557b9db04476'
             '450004fc75ec076217a1bac4dc85abe68920d0377a4248d01cbe5f8c8f98819a'
