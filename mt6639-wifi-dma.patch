@@ -93,7 +93,7 @@ index 2d358a9..4a930c1 100644
  
  int mt7925_init_mlo_caps(struct mt792x_phy *phy)
 diff --git a/mt7925/mcu.c b/mt7925/mcu.c
-index cf0fdea..8b5ffb2 100644
+index cf0fdea..d0001e0 100644
 --- a/mt7925/mcu.c
 +++ b/mt7925/mcu.c
 @@ -1683,6 +1683,7 @@ mt7925_mcu_sta_eht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
@@ -102,8 +102,18 @@ index cf0fdea..8b5ffb2 100644
  	memcpy(eht->mcs_map_bw160, &mcs_map->bw._160, sizeof(eht->mcs_map_bw160));
 +	memcpy(eht->mcs_map_bw320, &mcs_map->bw._320, sizeof(eht->mcs_map_bw320));
  }
- 
+
  static void
+@@ -2331,6 +2332,9 @@ void mt7925_mcu_bss_rlm_tlv(struct sk_buff *skb, struct mt76_phy *phy,
+ 	case NL80211_CHAN_WIDTH_160:
+ 		req->bw = CMD_CBW_160MHZ;
+ 		break;
++	case NL80211_CHAN_WIDTH_320:
++		req->bw = CMD_CBW_320MHZ;
++		break;
+ 	case NL80211_CHAN_WIDTH_5:
+ 		req->bw = CMD_CBW_5MHZ;
+ 		break;
 diff --git a/mt7925/mt7925.h b/mt7925/mt7925.h
 index 6b9bf1b..d476b13 100644
 --- a/mt7925/mt7925.h

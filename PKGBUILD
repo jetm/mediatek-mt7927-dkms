@@ -13,6 +13,9 @@
 #   - Lenovo Legion Pro 7 16ARX9      (BT USB 0489:e0fa, WiFi PCI 14c3:7927)
 #   - Foxconn/Azurewave modules        (WiFi PCI 14c3:6639)
 #   - AMD RZ738 (MediaTek MT7927)      (WiFi PCI 14c3:0738)
+#   - ASUS ROG Zephyrus G14          (aftermarket MT7927 swap)
+#   - TP-Link Archer TBE550E PCIe    (E-key MT7927, extractable for laptop use)
+#   - ASUS ProArt X870E              (WiFi PCI 14c3:7927)
 #
 # MediaTek naming is confusing. Here's the map:
 #   MT7927 = combo module on the motherboard (WiFi 7 + BT 5.4, Filogic 380)
@@ -36,11 +39,11 @@
 
 pkgname=mediatek-mt7927-dkms
 pkgver=2.1
-pkgrel=2
+pkgrel=3
 # Keywords: MT7927 MT7925 MT6639 MT7902 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
 pkgdesc="DKMS Bluetooth (MT6639) and WiFi (MT7925e/MT7902) modules for MediaTek MT7927 Filogic 380"
 arch=('x86_64')
-url="https://github.com/clemenscodes/linux-mediatek-mt6639-bluetooth-kernel-module"
+url="https://github.com/jetm/mediatek-mt7927-dkms"
 license=('GPL-2.0-only')
 depends=('dkms')
 makedepends=('python' 'curl')
@@ -48,6 +51,10 @@ provides=('mediatek-mt6639-bt-dkms' 'mediatek-mt7925-wifi-dkms')
 conflicts=('btusb-mt7925-dkms' 'btusb-mt7927-dkms')
 install=mediatek-mt7927-dkms.install
 
+# NOTE: Newer firmware exists (WLAN 5.7.3.5312, 2026-01-23) but is only available
+# as a driver-only package from station-drivers.com - no ASUS consumer ZIP on CDN yet.
+# When ASUS publishes a newer ZIP, update _driver_filename and _driver_sha256 below.
+#   https://station-drivers.com/index.php/en/component/remository/Drivers/MediaTek/MediaTek-MT7927-MT7925-Wireless-Lan/
 _driver_filename='DRV_WiFi_MTK_MT7925_MT7927_TP_W11_64_V5603998_20250709R.zip'
 _driver_sha256='b377fffa28208bb1671a0eb219c84c62fba4cd6f92161b74e4b0909476307cc8'
 
@@ -66,7 +73,7 @@ source=(
 sha256sums=('c4187bd88174a96f6ec912963be2a472bc77989d368f6eda28fc40b04747d64f'
             '736d3fcd477e380a1b3e9f2a3d424ec4473535ead44e8c8ac8f515d886b8fdfa'
             'a54284178855f1a9120d3d36f76a60cb83491097da86eb316b4f557b9db04476'
-            '9cc2d473cb691c40b9e2d516e79949741e46da761785f44a0741f1ae13e4d4ab'
+            'c32b669b08f35ea52889301958eeeb51f2502e5421efe943cf450ce691f3797f'
             'e94c77671abe0d589faa01c1a9451f626b1fc45fb04f765b43fd0e126d01a436'
             '9f4a0d13e782582c3f0cf59f66cfa0084d08473ada76067dbcb85ee8d9988b26'
             '72216f5a821858fac0d616c8b3c12fb5ee09887c809e3815c6dbaace5d3b557f')
