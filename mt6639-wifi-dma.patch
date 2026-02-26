@@ -92,8 +92,39 @@ index 2d358a9..4a930c1 100644
  }
  
  int mt7925_init_mlo_caps(struct mt792x_phy *phy)
+diff --git a/mt7925/mac.c b/mt7925/mac.c
+index 871b671..a2070ef 100644
+--- a/mt7925/mac.c
++++ b/mt7925/mac.c
+@@ -336,10 +336,15 @@ mt7925_mac_fill_rx_rate(struct mt792x_dev *dev,
+ 	case IEEE80211_STA_RX_BW_80:
+ 		status->bw = RATE_INFO_BW_80;
+ 		break;
+ 	case IEEE80211_STA_RX_BW_160:
+ 		status->bw = RATE_INFO_BW_160;
+ 		break;
++	/* RXV can report 320 in two positions */
++	case IEEE80211_STA_RX_BW_320:
++	case IEEE80211_STA_RX_BW_320 + 1:
++		status->bw = RATE_INFO_BW_320;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+ 
+@@ -993,6 +998,10 @@ mt7925_mac_add_txs_skb(struct mt792x_dev *dev, struct mt76_wcid *wcid,
+ 	switch (FIELD_GET(MT_TXS0_BW, txs)) {
++	case IEEE80211_STA_RX_BW_320:
++		rate.bw = RATE_INFO_BW_320;
++		stats->tx_bw[4]++;
++		break;
+ 	case IEEE80211_STA_RX_BW_160:
+ 		rate.bw = RATE_INFO_BW_160;
+ 		stats->tx_bw[3]++;
+ 		break;
+ 	case IEEE80211_STA_RX_BW_80:
 diff --git a/mt7925/mcu.c b/mt7925/mcu.c
-index cf0fdea..8b5ffb2 100644
+index cf0fdea..d0001e0 100644
 --- a/mt7925/mcu.c
 +++ b/mt7925/mcu.c
 @@ -1683,6 +1683,7 @@ mt7925_mcu_sta_eht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
@@ -104,6 +135,16 @@ index cf0fdea..8b5ffb2 100644
  }
  
  static void
+@@ -2331,6 +2332,9 @@ void mt7925_mcu_bss_rlm_tlv(struct sk_buff *skb, struct mt76_phy *phy,
+ 	case NL80211_CHAN_WIDTH_160:
+ 		req->bw = CMD_CBW_160MHZ;
+ 		break;
++	case NL80211_CHAN_WIDTH_320:
++		req->bw = CMD_CBW_320MHZ;
++		break;
+ 	case NL80211_CHAN_WIDTH_5:
+ 		req->bw = CMD_CBW_5MHZ;
+ 		break;
 diff --git a/mt7925/mt7925.h b/mt7925/mt7925.h
 index 6b9bf1b..d476b13 100644
 --- a/mt7925/mt7925.h
@@ -123,7 +164,7 @@ index 6b9bf1b..d476b13 100644
  	MODE_OPEN = 0,
  	MODE_SHARED = 1,
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index db053bd..27f1c0b 100644
+index db053bd..68383ac 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -324,6 +324,126 @@ static void mt6639_cbtop_remap(struct mt792x_dev *dev)
@@ -253,7 +294,23 @@ index db053bd..27f1c0b 100644
  static int mt7925_pci_probe(struct pci_dev *pdev,
  			    const struct pci_device_id *id)
  {
-@@ -406,6 +526,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -396,7 +516,14 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+ 	if (ret)
+ 		goto err_free_pci_vec;
+ 
+-	if (mt7925_disable_aspm)
++	/* MT6639 CONNINFRA power domain and WFDMA register access are
++	 * unreliable with PCIe L1 active, causing throughput to drop
++	 * from 1+ Gbps to ~200 Mbps.  Disable ASPM unconditionally
++	 * rather than only L1, since L0s savings are negligible for
++	 * a PCIe WLAN card and mt76_pci_disable_aspm() already
++	 * handles both device and parent bridge in one call.
++	 */
++	if (mt7925_disable_aspm || is_mt6639_hw)
+ 		mt76_pci_disable_aspm(pdev);
+ 
+ 	ops = mt792x_get_mac80211_ops(&pdev->dev, &mt7925_ops,
+@@ -406,6 +533,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  		goto err_free_pci_vec;
  	}
  
@@ -270,7 +327,7 @@ index db053bd..27f1c0b 100644
  	mdev = mt76_alloc_device(&pdev->dev, sizeof(*dev), ops, &drv_ops);
  	if (!mdev) {
  		ret = -ENOMEM;
-@@ -417,7 +547,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -417,7 +554,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	dev = container_of(mdev, struct mt792x_dev, mt76);
  	dev->fw_features = features;
  	dev->hif_ops = &mt7925_pcie_ops;
@@ -282,7 +339,7 @@ index db053bd..27f1c0b 100644
  	mt76_mmio_init(&dev->mt76, pcim_iomap_table(pdev)[0]);
  	tasklet_init(&mdev->irq_tasklet, mt792x_irq_tasklet, (unsigned long)dev);
  
-@@ -487,7 +620,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
+@@ -487,7 +627,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	if (ret)
  		goto err_free_dev;
  
@@ -294,7 +351,7 @@ index db053bd..27f1c0b 100644
  	if (ret)
  		goto err_free_irq;
  
-@@ -627,7 +763,10 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
+@@ -627,7 +770,10 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
  	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
  	mt76_connac_irq_enable(&dev->mt76,
  			       dev->irq_map->tx.all_complete_mask |
@@ -397,13 +454,14 @@ index 002aece..04c0663 100644
  		/* rx ring */
  		mt76_wr(dev, MT_WFDMA0_RX_RING0_EXT_CTRL, PREFETCH(0x0000, 0x4));
  		mt76_wr(dev, MT_WFDMA0_RX_RING1_EXT_CTRL, PREFETCH(0x0040, 0x4));
-@@ -166,6 +182,13 @@ int mt792x_dma_enable(struct mt792x_dev *dev)
+@@ -166,6 +182,14 @@ int mt792x_dma_enable(struct mt792x_dev *dev)
  	mt76_set(dev, MT_WFDMA0_GLO_CFG,
  		 MT_WFDMA0_GLO_CFG_TX_DMA_EN | MT_WFDMA0_GLO_CFG_RX_DMA_EN);
  
 +	if (is_mt6639(&dev->mt76)) {
 +		mt76_set(dev, MT_WFDMA0_GLO_CFG,
-+			 MT_WFDMA0_GLO_CFG_ADDR_EXT_EN);
++			 MT_WFDMA0_GLO_CFG_ADDR_EXT_EN |
++			 MT_WFDMA0_GLO_CFG_FW_DWLD_BYPASS_DMASHDL);
 +		mt76_clear(dev, MT_WFDMA0_GLO_CFG,
 +			   MT_WFDMA0_GLO_CFG_CSR_LBK_RX_Q_SEL_EN);
 +	}

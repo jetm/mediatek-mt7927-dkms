@@ -16,7 +16,7 @@
 @@ -166,6 +170,15 @@
  		section_offset = le32_to_cpu(sectionmap->secoffset);
  		dl_size = le32_to_cpu(sectionmap->bin_info_spec.dlsize);
-
+ 
 +                /* MT6639: only download sections where dlmode byte0 == 0x01,
 +                 * matching the Windows driver behavior which skips WiFi/other
 +                 * sections that would cause the chip to hang.
@@ -38,7 +38,7 @@
  		err = btmtk_usb_uhw_reg_read(hdev, MTK_BT_RESET_REG_CONNV3, &val);
  		if (err < 0)
  			return err;
-@@ -1324,23 +1337,24 @@
+@@ -1324,23 +1337,38 @@
  		fwname = FIRMWARE_MT7668;
  		break;
  	case 0x7922:
@@ -47,20 +47,34 @@
  	case 0x7961:
  		btmtk_fw_get_filename(fw_bin_name, sizeof(fw_bin_name), dev_id,
  				      fw_version, fw_flavor);
-
+ 
++		/* MT6639: firmware persists across BT soft power cycles
++		 * (shutdown only sends WMT_FUNC_CTRL=0). Skip re-download
++		 * on subsequent setups to avoid ~2.6s delay.
++		 */
++		if (dev_id == 0x6639 &&
++		    test_bit(BTMTK_FIRMWARE_LOADED, &btmtk_data->flags)) {
++			bt_dev_info(hdev, "MT6639: firmware already loaded, skipping download");
++			goto skip_fw_setup_79xx;
++		}
++
  		err = btmtk_setup_firmware_79xx(hdev, fw_bin_name,
  						btmtk_usb_hci_wmt_sync);
  		if (err < 0) {
  			bt_dev_err(hdev, "Failed to set up firmware (%d)", err);
  			return err;
  		}
-
+ 
++		if (dev_id == 0x6639)
++			set_bit(BTMTK_FIRMWARE_LOADED, &btmtk_data->flags);
++
++skip_fw_setup_79xx:
  		/* It's Device EndPoint Reset Option Register */
  		err = btmtk_usb_uhw_reg_write(hdev, MTK_EP_RST_OPT,
  					      MTK_EP_RST_IN_OUT_OPT);
  		if (err < 0)
  			return err;
-
+ 
  		/* Enable Bluetooth protocol */
  		param = 1;
 --- a/drivers/bluetooth/btmtk.h
@@ -70,18 +84,22 @@
  #define FIRMWARE_MT7961		"mediatek/BT_RAM_CODE_MT7961_1_2_hdr.bin"
  #define FIRMWARE_MT7925		"mediatek/mt7925/BT_RAM_CODE_MT7925_1_1_hdr.bin"
 +#define FIRMWARE_MT7927		"mediatek/mt6639/BT_RAM_CODE_MT6639_2_1_hdr.bin"
-
+ 
  #define HCI_EV_WMT 0xe4
  #define HCI_WMT_MAX_EVENT_SIZE		64
 --- a/drivers/bluetooth/btusb.c
 +++ b/drivers/bluetooth/btusb.c
-@@ -733,6 +733,10 @@
+@@ -733,6 +733,14 @@
  						     BTUSB_WIDEBAND_SPEECH },
  	{ USB_DEVICE(0x0489, 0xe139), .driver_info = BTUSB_MEDIATEK |
  						     BTUSB_WIDEBAND_SPEECH },
 +	{ USB_DEVICE(0x0489, 0xe13a), .driver_info = BTUSB_MEDIATEK |
 +						     BTUSB_WIDEBAND_SPEECH },
 +	{ USB_DEVICE(0x0489, 0xe0fa), .driver_info = BTUSB_MEDIATEK |
++						     BTUSB_WIDEBAND_SPEECH },
++	{ USB_DEVICE(0x0489, 0xe116), .driver_info = BTUSB_MEDIATEK |
++						     BTUSB_WIDEBAND_SPEECH },
++	{ USB_DEVICE(0x13d3, 0x3588), .driver_info = BTUSB_MEDIATEK |
 +						     BTUSB_WIDEBAND_SPEECH },
  	{ USB_DEVICE(0x0489, 0xe14e), .driver_info = BTUSB_MEDIATEK |
  						     BTUSB_WIDEBAND_SPEECH },
