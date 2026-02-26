@@ -92,6 +92,37 @@ index 2d358a9..4a930c1 100644
  }
  
  int mt7925_init_mlo_caps(struct mt792x_phy *phy)
+diff --git a/mt7925/mac.c b/mt7925/mac.c
+index 871b671..a2070ef 100644
+--- a/mt7925/mac.c
++++ b/mt7925/mac.c
+@@ -336,10 +336,15 @@ mt7925_mac_fill_rx_rate(struct mt792x_dev *dev,
+ 	case IEEE80211_STA_RX_BW_80:
+ 		status->bw = RATE_INFO_BW_80;
+ 		break;
+ 	case IEEE80211_STA_RX_BW_160:
+ 		status->bw = RATE_INFO_BW_160;
+ 		break;
++	/* RXV can report 320 in two positions */
++	case IEEE80211_STA_RX_BW_320:
++	case IEEE80211_STA_RX_BW_320 + 1:
++		status->bw = RATE_INFO_BW_320;
++		break;
+ 	default:
+ 		return -EINVAL;
+ 	}
+ 
+@@ -993,6 +998,10 @@ mt7925_mac_add_txs_skb(struct mt792x_dev *dev, struct mt76_wcid *wcid,
+ 	switch (FIELD_GET(MT_TXS0_BW, txs)) {
++	case IEEE80211_STA_RX_BW_320:
++		rate.bw = RATE_INFO_BW_320;
++		stats->tx_bw[4]++;
++		break;
+ 	case IEEE80211_STA_RX_BW_160:
+ 		rate.bw = RATE_INFO_BW_160;
+ 		stats->tx_bw[3]++;
+ 		break;
+ 	case IEEE80211_STA_RX_BW_80:
 diff --git a/mt7925/mcu.c b/mt7925/mcu.c
 index cf0fdea..d0001e0 100644
 --- a/mt7925/mcu.c
@@ -102,7 +133,7 @@ index cf0fdea..d0001e0 100644
  	memcpy(eht->mcs_map_bw160, &mcs_map->bw._160, sizeof(eht->mcs_map_bw160));
 +	memcpy(eht->mcs_map_bw320, &mcs_map->bw._320, sizeof(eht->mcs_map_bw320));
  }
-
+ 
  static void
 @@ -2331,6 +2332,9 @@ void mt7925_mcu_bss_rlm_tlv(struct sk_buff *skb, struct mt76_phy *phy,
  	case NL80211_CHAN_WIDTH_160:
@@ -266,7 +297,7 @@ index db053bd..68383ac 100644
 @@ -396,7 +516,14 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  	if (ret)
  		goto err_free_pci_vec;
-
+ 
 -	if (mt7925_disable_aspm)
 +	/* MT6639 CONNINFRA power domain and WFDMA register access are
 +	 * unreliable with PCIe L1 active, causing throughput to drop
@@ -277,7 +308,7 @@ index db053bd..68383ac 100644
 +	 */
 +	if (mt7925_disable_aspm || is_mt6639_hw)
  		mt76_pci_disable_aspm(pdev);
-
+ 
  	ops = mt792x_get_mac80211_ops(&pdev->dev, &mt7925_ops,
 @@ -406,6 +533,16 @@ static int mt7925_pci_probe(struct pci_dev *pdev,
  		goto err_free_pci_vec;
