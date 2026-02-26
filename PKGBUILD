@@ -14,7 +14,7 @@
 #   - Foxconn/Azurewave modules        (WiFi PCI 14c3:6639)
 #   - AMD RZ738 (MediaTek MT7927)      (WiFi PCI 14c3:0738)
 #   - ASUS ROG Zephyrus G14          (aftermarket MT7927 swap)
-#   - TP-Link Archer TBE550E PCIe    (E-key MT7927, extractable for laptop use)
+#   - TP-Link Archer TBE550E PCIe    (BT USB 0489:e116, E-key MT7927, extractable for laptop use)
 #   - ASUS ProArt X870E              (WiFi PCI 14c3:7927)
 #   - ASUS X870E-E                   (BT USB 13d3:3588, WiFi PCI 14c3:7927)
 #
@@ -40,7 +40,7 @@
 
 pkgname=mediatek-mt7927-dkms
 pkgver=2.1
-pkgrel=6
+pkgrel=7
 # Keywords: MT7927 MT7925 MT6639 MT7902 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
 pkgdesc="DKMS Bluetooth (MT6639) and WiFi (MT7925e/MT7902) modules for MediaTek MT7927 Filogic 380"
 arch=('x86_64')
@@ -52,9 +52,9 @@ provides=('mediatek-mt6639-bt-dkms' 'mediatek-mt7925-wifi-dkms')
 conflicts=('btusb-mt7925-dkms' 'btusb-mt7927-dkms')
 install=mediatek-mt7927-dkms.install
 
-# NOTE: Newer firmware exists (WLAN 5.7.3.5312, 2026-01-23) but is only available
-# as a driver-only package from station-drivers.com - no ASUS consumer ZIP on CDN yet.
-# When ASUS publishes a newer ZIP, update _driver_filename and _driver_sha256 below.
+# NOTE: Newer firmware exists on station-drivers.com (v25.030.3.0057, 2026-01-18).
+# Contains mtkwlan.dat at Wlan/Drivers/7925/mtkwlan.dat. Tested by marcin-fm - did
+# not fix TX retransmissions. Requires manual browser download (JS-based).
 #   https://station-drivers.com/index.php/en/component/remository/Drivers/MediaTek/MediaTek-MT7927-MT7925-Wireless-Lan/
 _driver_filename='DRV_WiFi_MTK_MT7925_MT7927_TP_W11_64_V5603998_20250709R.zip'
 _driver_sha256='b377fffa28208bb1671a0eb219c84c62fba4cd6f92161b74e4b0909476307cc8'
@@ -71,7 +71,7 @@ source=(
   'dkms.conf'
   'dkms-patchmodule.sh'
 )
-sha256sums=('db77b8340f541ad5791e987eaa783d150cbe8d33728be3bbaf014d28c957c479'
+sha256sums=('365cbfa4f66f00997c892a2ccd88f9ec42915590ea49fefd593f3206836821db'
             '736d3fcd477e380a1b3e9f2a3d424ec4473535ead44e8c8ac8f515d886b8fdfa'
             'a54284178855f1a9120d3d36f76a60cb83491097da86eb316b4f557b9db04476'
             '450004fc75ec076217a1bac4dc85abe68920d0377a4248d01cbe5f8c8f98819a'
