@@ -40,7 +40,7 @@
 
 pkgname=mediatek-mt7927-dkms
 pkgver=2.1
-pkgrel=7
+pkgrel=8
 # Keywords: MT7927 MT7925 MT6639 MT7902 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
 pkgdesc="DKMS Bluetooth (MT6639) and WiFi (MT7925e/MT7902) modules for MediaTek MT7927 Filogic 380"
 arch=('x86_64')
@@ -71,7 +71,7 @@ source=(
   'dkms.conf'
   'dkms-patchmodule.sh'
 )
-sha256sums=('365cbfa4f66f00997c892a2ccd88f9ec42915590ea49fefd593f3206836821db'
+sha256sums=('84094b0e92d3e820f932df358cd806f8a537c79c8aacacf9333af4a84a5f6af1'
             '736d3fcd477e380a1b3e9f2a3d424ec4473535ead44e8c8ac8f515d886b8fdfa'
             'a54284178855f1a9120d3d36f76a60cb83491097da86eb316b4f557b9db04476'
             '450004fc75ec076217a1bac4dc85abe68920d0377a4248d01cbe5f8c8f98819a'
