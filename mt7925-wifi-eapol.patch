@@ -1,0 +1,35 @@
+Subject: wifi: mt76: mt7925: disable MAT for EAPOL frames
+
+MT7996's write_txwi unconditionally sets MT_TXD6_DIS_MAT for EAPOL
+frames (skb->protocol == ETH_P_PAE), preventing the firmware's
+hardware MAC Address Translation from corrupting authentication
+frame headers. MT7925 only disables MAT based on queue index
+(ALTX0/BCN0) and MLD state, leaving EAPOL frames on normal WMM
+queues subject to MAT when the VIF has MLD active.
+
+This causes 4WAY_HANDSHAKE_TIMEOUT (reason=15) on 5 GHz and 6 GHz:
+the firmware's MAT rewrites EAPOL Key 2/4 headers, the AP never
+receives a valid response, and deauthenticates after ~4 seconds.
+2.4 GHz is unaffected because the AP typically does not negotiate
+MLD on that band.
+
+Port the ETH_P_PAE check from MT7996 to MT7925.
+
+Signed-off-by: Javier Tia <floss@jetm.me>
+---
+ mt7925/mac.c | 3 ++-
+ 1 file changed, 2 insertions(+), 1 deletion(-)
+
+diff --git a/mt7925/mac.c b/mt7925/mac.c
+--- a/mt7925/mac.c
++++ b/mt7925/mac.c
+@@ -808,7 +808,8 @@ mt7925_mac_write_txwi(struct mt76_dev *dev, __le32 *txwi,
+
+ 	val = MT_TXD6_DAS | FIELD_PREP(MT_TXD6_MSDU_CNT, 1);
+ 	if (!ieee80211_vif_is_mld(vif) ||
+-	    (q_idx >= MT_LMAC_ALTX0 && q_idx <= MT_LMAC_BCN0))
++	    (q_idx >= MT_LMAC_ALTX0 && q_idx <= MT_LMAC_BCN0) ||
++	    skb->protocol == cpu_to_be16(ETH_P_PAE))
+ 		val |= MT_TXD6_DIS_MAT;
+ 	txwi[6] = cpu_to_le32(val);
+ 	txwi[7] = 0;
