@@ -120,14 +120,6 @@ nmcli connection modify <ssid> connection.auth-retries 3
 rfkill unblock bluetooth
 ```
 
-To fix permanently, add a udev rule that auto-unblocks on device attach (replace
-the USB ID with yours from `lsusb | grep -iE '0489|13d3'`):
-
-```bash
-echo 'ACTION=="add", SUBSYSTEM=="usb", ATTR{idVendor}=="0489", ATTR{idProduct}=="e13a", RUN+="/usr/bin/rfkill unblock bluetooth"' \
-  | sudo tee /etc/udev/rules.d/99-mt6639-bt-rfkill.rules
-sudo udevadm control --reload-rules
-```
 
 **DKMS not built for current kernel:**
 
