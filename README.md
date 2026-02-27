@@ -132,6 +132,45 @@ sudo dkms install mediatek-mt7927/2.1
 Patches are prepared for upstream submission but not yet sent to linux-wireless@.
 See the [mt76#927](https://github.com/openwrt/mt76/issues/927) tracking issue.
 
+## Roadmap
+
+### Upstream submission
+
+Submit WiFi patches to linux-wireless@ and BT firmware to linux-firmware. Once
+merged, this package becomes unnecessary for kernels that include MT6639 support.
+
+### EAPOL 5/6 GHz investigation
+
+WPA handshake fails on the first attempt on 5/6 GHz bands (MT6639 only - MT7925
+works fine). The driver correctly delays RX header translation until key install,
+but MT6639 firmware appears to enable its own fast-path RX processing early, eating
+EAPOL frames before the 4-way handshake completes. Evidence:
+
+- The driver sends `dis_rx_hdr_tran = true` before key install, but firmware ignores
+  it on MT6639
+- Patching the driver side was confirmed as a no-op
+- Open 5 GHz networks work (no 4-way handshake needed)
+- 2.4 GHz WPA works (different firmware timing or lower latency)
+
+**What RE work would help:** capture the MCU command sequence during a Windows 5 GHz
+WPA connection and compare against Linux. Specifically:
+
+- When does the Windows driver enable `STA_REC_HDR_TRANS` relative to the 4-way
+  handshake?
+- Does Windows send additional connection state values or TLVs that Linux omits?
+- Are there MT6639-specific MCU commands (fast-path config, RX offload, EAPOL
+  filter) that Linux doesn't send?
+
+### Firmware dependencies
+
+These issues are firmware-controlled and cannot be fixed in the driver:
+
+- **TX retransmissions** - ~35% retry rate at 320MHz, firmware manages rate
+  adaptation and retry logic
+- **AP mode / MLO** - firmware does not support access point or multi-link operation
+
+See [mt76#927](https://github.com/openwrt/mt76/issues/927) for detailed discussion.
+
 ## License
 
 GPL-2.0-only
