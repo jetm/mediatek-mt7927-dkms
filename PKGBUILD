@@ -44,7 +44,7 @@
 
 pkgname=mediatek-mt7927-dkms
 pkgver=2.1
-pkgrel=14
+pkgrel=15
 # Keywords: MT7927 MT7925 MT6639 MT7902 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
 pkgdesc="DKMS Bluetooth (MT6639) and WiFi (MT7925e/MT7902) modules for MediaTek MT7927 Filogic 380"
 arch=('x86_64')
@@ -72,7 +72,6 @@ source=(
   'mt7902-wifi-6.19.patch'
   'mt6639-wifi-init.patch'
   'mt6639-wifi-dma.patch'
-  'mt7925-wifi-eapol-rx.patch'
   'extract_firmware.py'
   'dkms.conf'
   'dkms-patchmodule.sh'
@@ -82,7 +81,6 @@ sha256sums=('279b3bc4c11d1805a9ca1665272207d3d1985e38eeffefd50f7ab990fe89c8ac'
             '736d3fcd477e380a1b3e9f2a3d424ec4473535ead44e8c8ac8f515d886b8fdfa'
             'a54284178855f1a9120d3d36f76a60cb83491097da86eb316b4f557b9db04476'
             '5c2eaaa90b85cf1db8641879acf63b1f029388096a747f8294689583bd2332d1'
-            '647023316e745f6aeab8f9049b6c01443492e3879bf146c74932c4848b289d0e'
             'e94c77671abe0d589faa01c1a9451f626b1fc45fb04f765b43fd0e126d01a436'
             '9f4a0d13e782582c3f0cf59f66cfa0084d08473ada76067dbcb85ee8d9988b26'
             'a08e538116e96106c564daa701a3f364f3018f035b4ac6955cd68afcbff841f7')
@@ -188,9 +186,6 @@ build() {
 
   echo "Applying mt6639-wifi-dma.patch..."
   patch -p1 < "${srcdir}/mt6639-wifi-dma.patch"
-
-  echo "Applying mt7925-wifi-eapol-rx.patch..."
-  patch -p1 < "${srcdir}/mt7925-wifi-eapol-rx.patch"
 
   # Create Kbuild files for out-of-tree mt76 build
   cat > "${srcdir}/mt76/Kbuild" <<'EOF'

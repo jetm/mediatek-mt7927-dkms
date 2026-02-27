@@ -14,7 +14,7 @@ device ID and firmware patches not yet in mainline. Distributed as an
 | WiFi (MT7925e via PCIe) | **WORKING** | 2.4/5/6 GHz, 320MHz, PM, suspend/resume |
 
 **Known issues:**
-- 5/6 GHz WPA authentication may need 1-2 retries (EAPOL RX header translation quirk)
+- 5/6 GHz WPA authentication may need 1-2 retries (firmware handshake timeout)
 - TX retransmissions elevated vs baseline (firmware-side, not driver-fixable)
 - AP mode and MLO not supported (firmware limitation)
 
