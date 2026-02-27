@@ -5,7 +5,11 @@
 #     and installs firmware extracted from the MediaTek driver package.
 #   - WiFi (MT7925e via PCIe): WORKING - patches mt7925e driver with MT6639
 #     CBTOP remap, DMA ring layout, DBDC dual-band, and CNM channel context.
-#     Both 2.4GHz and 5GHz tested. Tracking:
+#     Both 2.4GHz and 5GHz tested.
+#
+# Sources mt76 + btusb from the kernel tarball (cdn.kernel.org) to avoid
+# kernel.org CGI rate limits (503 errors after ~50 requests).
+# Tracking:
 #       https://github.com/openwrt/mt76/issues/927
 #
 # Known hardware using MT7927/MT6639:
@@ -40,7 +44,7 @@
 
 pkgname=mediatek-mt7927-dkms
 pkgver=2.1
-pkgrel=13
+pkgrel=14
 # Keywords: MT7927 MT7925 MT6639 MT7902 Filogic 380 WiFi 7 Bluetooth btusb mt7925e mt7921e
 pkgdesc="DKMS Bluetooth (MT6639) and WiFi (MT7925e/MT7902) modules for MediaTek MT7927 Filogic 380"
 arch=('x86_64')
@@ -60,9 +64,10 @@ _driver_filename='DRV_WiFi_MTK_MT7925_MT7927_TP_W11_64_V5603998_20250709R.zip'
 _driver_sha256='b377fffa28208bb1671a0eb219c84c62fba4cd6f92161b74e4b0909476307cc8'
 
 # Kernel version the mt76 WiFi patches target
-_mt76_kver='6.19.3'
+_mt76_kver='6.19.4'
 
 source=(
+  "https://cdn.kernel.org/pub/linux/kernel/v${_mt76_kver%%.*}.x/linux-${_mt76_kver}.tar.xz"
   'mt6639-bt-6.19.patch'
   'mt7902-wifi-6.19.patch'
   'mt6639-wifi-init.patch'
@@ -72,14 +77,15 @@ source=(
   'dkms.conf'
   'dkms-patchmodule.sh'
 )
-sha256sums=('84094b0e92d3e820f932df358cd806f8a537c79c8aacacf9333af4a84a5f6af1'
+sha256sums=('279b3bc4c11d1805a9ca1665272207d3d1985e38eeffefd50f7ab990fe89c8ac'
+            '84094b0e92d3e820f932df358cd806f8a537c79c8aacacf9333af4a84a5f6af1'
             '736d3fcd477e380a1b3e9f2a3d424ec4473535ead44e8c8ac8f515d886b8fdfa'
             'a54284178855f1a9120d3d36f76a60cb83491097da86eb316b4f557b9db04476'
             '5c2eaaa90b85cf1db8641879acf63b1f029388096a747f8294689583bd2332d1'
             '647023316e745f6aeab8f9049b6c01443492e3879bf146c74932c4848b289d0e'
             'e94c77671abe0d589faa01c1a9451f626b1fc45fb04f765b43fd0e126d01a436'
             '9f4a0d13e782582c3f0cf59f66cfa0084d08473ada76067dbcb85ee8d9988b26'
-            '72216f5a821858fac0d616c8b3c12fb5ee09887c809e3815c6dbaace5d3b557f')
+            'a08e538116e96106c564daa701a3f364f3018f035b4ac6955cd68afcbff841f7')
 
 # Auto-download via ASUS CDN token API.
 # Based on code by Eadinator: https://github.com/openwrt/mt76/issues/927#issuecomment-3936022734
@@ -112,86 +118,6 @@ _download_driver_zip() {
     echo >&2 "Failed to download driver ZIP"
     return 1
   fi
-}
-
-_download_mt76_source() {
-  local _kver="$1"
-  local _destdir="$2"
-
-  echo "Downloading mt76 source for kernel v${_kver}..."
-
-  local _base="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/drivers/net/wireless/mediatek/mt76"
-
-  # Try exact version first, fall back to major.minor
-  local _major_minor=${_kver%.*}
-  local _refs=(
-    "v${_kver}"
-    "linux-${_major_minor}.y"
-    "v${_major_minor}"
-  )
-
-  _dl_mt76_file() {
-    local file="$1" destdir="$2"
-    for ref in "${_refs[@]}"; do
-      if curl -sS -f -o "${destdir}/${file}" "${_base}/${file}?h=${ref}"; then
-        return 0
-      fi
-    done
-    return 1
-  }
-
-  mkdir -p "${_destdir}/mt7921" "${_destdir}/mt7925"
-
-  # Core mt76 files
-  local _mt76_files=(
-    mt76.h mt76_connac.h mt76_connac2_mac.h mt76_connac3_mac.h
-    mt76_connac_mcu.h mt76_connac_mcu.c mt76_connac_mac.c mt76_connac3_mac.c
-    mmio.c util.c util.h trace.c trace.h dma.c dma.h mac80211.c
-    debugfs.c eeprom.c tx.c agg-rx.c mcu.c wed.c scan.c channel.c pci.c
-    testmode.h
-    mt792x.h mt792x_regs.h mt792x_core.c mt792x_mac.c
-    mt792x_trace.c mt792x_trace.h mt792x_debugfs.c mt792x_dma.c
-    mt792x_acpi_sar.c mt792x_acpi_sar.h
-    sdio.h
-  )
-
-  # mt7921 files
-  local _mt7921_files=(
-    mt7921.h mac.c mcu.c main.c init.c debugfs.c
-    pci.c pci_mac.c pci_mcu.c sdio.c sdio_mac.c sdio_mcu.c
-    regs.h mcu.h
-  )
-
-  # mt7925 files
-  local _mt7925_files=(
-    mt7925.h mac.c mac.h mcu.c mcu.h main.c init.c debugfs.c
-    pci.c pci_mac.c pci_mcu.c
-    regd.c regd.h regs.h
-  )
-
-  for file in "${_mt76_files[@]}"; do
-    if ! _dl_mt76_file "$file" "${_destdir}"; then
-      echo >&2 "Failed to download mt76/${file}"
-      return 1
-    fi
-    echo "  ${file}"
-  done
-
-  for file in "${_mt7921_files[@]}"; do
-    if ! _dl_mt76_file "mt7921/${file}" "${_destdir}"; then
-      echo >&2 "Failed to download mt76/mt7921/${file}"
-      return 1
-    fi
-    echo "  mt7921/${file}"
-  done
-
-  for file in "${_mt7925_files[@]}"; do
-    if ! _dl_mt76_file "mt7925/${file}" "${_destdir}"; then
-      echo >&2 "Failed to download mt76/mt7925/${file}"
-      return 1
-    fi
-    echo "  mt7925/${file}"
-  done
 }
 
 prepare() {
@@ -237,8 +163,20 @@ build() {
   bsdtar -xf "${_zips[0]}" -C "${srcdir}" mtkwlan.dat
   python "${srcdir}/extract_firmware.py" "${srcdir}/mtkwlan.dat" "${srcdir}/firmware"
 
-  # Download mt76 source and apply WiFi patches
-  _download_mt76_source "${_mt76_kver}" "${srcdir}/mt76"
+  # Extract mt76 and bluetooth source from kernel tarball
+  echo "Extracting mt76 source from kernel v${_mt76_kver} tarball..."
+  mkdir -p "${srcdir}/mt76"
+  tar -xf "${srcdir}/linux-${_mt76_kver}.tar.xz" \
+    --strip-components=6 \
+    -C "${srcdir}/mt76" \
+    "linux-${_mt76_kver}/drivers/net/wireless/mediatek/mt76"
+
+  echo "Extracting bluetooth source..."
+  mkdir -p "${srcdir}/bluetooth"
+  tar -xf "${srcdir}/linux-${_mt76_kver}.tar.xz" \
+    --strip-components=3 \
+    -C "${srcdir}/bluetooth" \
+    "linux-${_mt76_kver}/drivers/bluetooth"
 
   cd "${srcdir}/mt76"
 
@@ -303,6 +241,11 @@ package() {
   install -Dm644 "${srcdir}/mt6639-bt-6.19.patch" "${_dkmsdir}/mt6639-bt-6.19.patch"
   install -Dm644 "${srcdir}/mt6639-wifi-init.patch" "${_dkmsdir}/mt6639-wifi-init.patch"
   install -Dm755 "${srcdir}/extract_firmware.py" "${_dkmsdir}/extract_firmware.py"
+
+  # Install pre-extracted bluetooth source for DKMS btusb builds
+  install -dm755 "${_dkmsdir}/drivers/bluetooth"
+  install -m644 "${srcdir}/bluetooth"/{btusb.c,btmtk.c,btmtk.h,btbcm.c,btbcm.h,btintel.h,btrtl.h} \
+    "${_dkmsdir}/drivers/bluetooth/"
 
   # Install patched mt76 WiFi source tree
   install -dm755 "${_dkmsdir}/mt76/mt7921" "${_dkmsdir}/mt76/mt7925"
