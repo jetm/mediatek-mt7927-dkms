@@ -1,0 +1,140 @@
+#!/bin/bash
+set -e
+
+# Detect current kernel version
+KVER_FULL=$(uname -r)
+KVER_BASE=$(echo $KVER_FULL | cut -d'-' -f1)
+KVER_MINOR=$(echo $KVER_BASE | cut -d'.' -f1,2)
+
+PKG_NAME="mediatek-mt7927"
+PKG_VER="2.1"
+DKMS_DIR="/usr/src/${PKG_NAME}-${PKG_VER}"
+BASE_URL="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain"
+
+echo "Detected Kernel: $KVER_FULL"
+
+echo "Cleaning up previous attempts..."
+sudo dkms remove -m ${PKG_NAME} -v ${PKG_VER} --all 2>/dev/null || true
+sudo rm -rf "${DKMS_DIR}"
+
+echo "Creating directory structure..."
+sudo mkdir -p "${DKMS_DIR}/drivers/bluetooth"
+sudo mkdir -p "${DKMS_DIR}/mt76/mt7921"
+sudo mkdir -p "${DKMS_DIR}/mt76/mt7925"
+
+echo "Copying local patch files..."
+sudo cp mt6639-bt-6.19.patch mt6639-wifi-init.patch mt6639-wifi-dma.patch mt7902-wifi-6.19.patch "${DKMS_DIR}/"
+
+dl_file() {
+  local path=$1
+  local destdir=$2
+  local filename=$(basename "$path")
+  for ref in "v${KVER_BASE}" "linux-${KVER_MINOR}.y" "v${KVER_MINOR}" "master"; do
+    if sudo curl -s -f -o "${destdir}/${filename}" "${BASE_URL}/${path}?h=${ref}"; then
+      return 0
+    fi
+  done
+  echo "WARNING: Failed to download ${path}"
+  return 1
+}
+
+echo "Downloading WiFi source..."
+MT76_REMOTE="drivers/net/wireless/mediatek/mt76"
+MT76_FILES=("mt76.h" "mt76_connac.h" "mt76_connac2_mac.h" "mt76_connac3_mac.h" "mt76_connac_mcu.h" "mt76_connac_mcu.c" "mt76_connac_mac.c" "mt76_connac3_mac.c" "mmio.c" "util.c" "util.h" "trace.c" "trace.h" "dma.c" "dma.h" "mac80211.c" "debugfs.c" "eeprom.c" "tx.c" "agg-rx.c" "mcu.c" "wed.c" "scan.c" "channel.c" "pci.c" "testmode.h" "mt792x.h" "mt792x_regs.h" "mt792x_core.c" "mt792x_mac.c" "mt792x_trace.c" "mt792x_trace.h" "mt792x_debugfs.c" "mt792x_dma.c" "mt792x_acpi_sar.c" "mt792x_acpi_sar.h" "sdio.h")
+for f in "${MT76_FILES[@]}"; do dl_file "${MT76_REMOTE}/${f}" "${DKMS_DIR}/mt76"; done
+
+MT7921_FILES=("mt7921.h" "mac.c" "mcu.c" "main.c" "init.c" "debugfs.c" "pci.c" "pci_mac.c" "pci_mcu.c" "sdio.c" "sdio_mac.c" "sdio_mcu.c" "regs.h" "mcu.h")
+for f in "${MT7921_FILES[@]}"; do dl_file "${MT76_REMOTE}/mt7921/${f}" "${DKMS_DIR}/mt76/mt7921"; done
+
+MT7925_FILES=("mt7925.h" "mac.c" "mac.h" "mcu.c" "main.c" "init.c" "debugfs.c" "pci.c" "pci_mac.c" "pci_mcu.c" "regd.c" "regd.h" "regs.h" "mcu.h")
+for f in "${MT7925_FILES[@]}"; do dl_file "${MT76_REMOTE}/mt7925/${f}" "${DKMS_DIR}/mt76/mt7925"; done
+
+echo "Downloading Bluetooth source and cross-vendor dependencies..."
+BT_REMOTE="drivers/bluetooth"
+# Added dependencies: btintel.h, btbcm.h, btrtl.h
+BT_FILES=("btusb.c" "btmtk.c" "btmtk.h" "btintel.h" "btbcm.h" "btrtl.h")
+for f in "${BT_FILES[@]}"; do dl_file "${BT_REMOTE}/${f}" "${DKMS_DIR}/drivers/bluetooth"; done
+
+echo "Applying Patches..."
+sudo sed -i 's/\r$//' "${DKMS_DIR}/"*.patch
+cd "${DKMS_DIR}"
+sudo patch -p1 < mt6639-bt-6.19.patch
+cd "${DKMS_DIR}/mt76"
+sudo patch -p1 < "${DKMS_DIR}/mt7902-wifi-6.19.patch"
+sudo patch -p1 < "${DKMS_DIR}/mt6639-wifi-init.patch"
+sudo patch -p1 < "${DKMS_DIR}/mt6639-wifi-dma.patch"
+
+echo "Generating Build Files..."
+sudo tee "${DKMS_DIR}/Kbuild" > /dev/null <<'EOF'
+obj-m += drivers/bluetooth/
+obj-m += mt76/
+EOF
+
+sudo tee "${DKMS_DIR}/drivers/bluetooth/Kbuild" > /dev/null <<'EOF'
+obj-m += btusb.o btmtk.o
+# This flag is crucial so btusb.c finds btintel.h in the same folder
+ccflags-y := -I$(src)
+EOF
+
+sudo tee "${DKMS_DIR}/mt76/Kbuild" > /dev/null <<'EOF'
+obj-m += mt76.o mt76-connac-lib.o mt792x-lib.o mt7921/ mt7925/
+mt76-y := mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o tx.o agg-rx.o mcu.o wed.o scan.o channel.o pci.o
+mt76-connac-lib-y := mt76_connac_mcu.o mt76_connac_mac.o mt76_connac3_mac.o
+mt792x-lib-y := mt792x_core.o mt792x_mac.o mt792x_trace.o mt792x_debugfs.o mt792x_dma.o mt792x_acpi_sar.o
+ccflags-y := -I$(src)
+EOF
+
+sudo tee "${DKMS_DIR}/mt76/mt7921/Kbuild" > /dev/null <<'EOF'
+obj-m += mt7921-common.o mt7921e.o
+mt7921-common-y := mac.o mcu.o main.o init.o debugfs.o
+mt7921e-y := pci.o pci_mac.o pci_mcu.o
+ccflags-y := -I$(src) -I$(src)/..
+EOF
+
+sudo tee "${DKMS_DIR}/mt76/mt7925/Kbuild" > /dev/null <<'EOF'
+obj-m += mt7925-common.o mt7925e.o
+mt7925-common-y := mac.o mcu.o regd.o main.o init.o debugfs.o
+mt7925e-y := pci.o pci_mac.o pci_mcu.o
+ccflags-y := -I$(src) -I$(src)/..
+EOF
+
+echo "Updating dkms.conf..."
+sudo tee "${DKMS_DIR}/dkms.conf" > /dev/null <<EOF
+PACKAGE_NAME="${PKG_NAME}"
+PACKAGE_VERSION="${PKG_VER}"
+BUILT_MODULE_NAME[0]="btusb"
+BUILT_MODULE_LOCATION[0]="drivers/bluetooth/"
+DEST_MODULE_LOCATION[0]="/updates/dkms/"
+BUILT_MODULE_NAME[1]="btmtk"
+BUILT_MODULE_LOCATION[1]="drivers/bluetooth/"
+DEST_MODULE_LOCATION[1]="/updates/dkms/"
+BUILT_MODULE_NAME[2]="mt76"
+BUILT_MODULE_LOCATION[2]="mt76/"
+DEST_MODULE_LOCATION[2]="/updates/dkms/"
+BUILT_MODULE_NAME[3]="mt76-connac-lib"
+BUILT_MODULE_LOCATION[3]="mt76/"
+DEST_MODULE_LOCATION[3]="/updates/dkms/"
+BUILT_MODULE_NAME[4]="mt792x-lib"
+BUILT_MODULE_LOCATION[4]="mt76/"
+DEST_MODULE_LOCATION[4]="/updates/dkms/"
+BUILT_MODULE_NAME[5]="mt7921-common"
+BUILT_MODULE_LOCATION[5]="mt76/mt7921/"
+DEST_MODULE_LOCATION[5]="/updates/dkms/"
+BUILT_MODULE_NAME[6]="mt7921e"
+BUILT_MODULE_LOCATION[6]="mt76/mt7921/"
+DEST_MODULE_LOCATION[6]="/updates/dkms/"
+BUILT_MODULE_NAME[7]="mt7925-common"
+BUILT_MODULE_LOCATION[7]="mt76/mt7925/"
+DEST_MODULE_LOCATION[7]="/updates/dkms/"
+BUILT_MODULE_NAME[8]="mt7925e"
+BUILT_MODULE_LOCATION[8]="mt76/mt7925/"
+DEST_MODULE_LOCATION[8]="/updates/dkms/"
+AUTOINSTALL="yes"
+EOF
+
+echo "Starting DKMS Build and Install..."
+sudo dkms add -m ${PKG_NAME} -v ${PKG_VER}
+sudo dkms build -m ${PKG_NAME} -v ${PKG_VER}
+sudo dkms install -m ${PKG_NAME} -v ${PKG_VER}
+
+echo "SUCCESS! WiFi and Bluetooth drivers are ready."
