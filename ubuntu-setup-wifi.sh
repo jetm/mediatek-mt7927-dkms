@@ -57,12 +57,13 @@ for f in "${MT7925_FILES[@]}"; do dl_file "mt7925/${f}" "${DKMS_DIR}/mt76/mt7925
 # 4. PATCHING
 echo "[4/4] Applying Patches..."
 
-sudo cp mt6639-wifi-init.patch mt6639-wifi-dma.patch mt7902-wifi-6.19.patch "${DKMS_DIR}/" 2>/dev/null || echo "Note: Patch files not found, skipping local patch copy."
+sudo cp mt6639-wifi-init.patch mt6639-wifi-dma.patch mt7902-wifi-6.19.patch mt6639-band-idx.patch "${DKMS_DIR}/" 2>/dev/null || echo "Note: Patch files not found, skipping local patch copy."
 cd "${DKMS_DIR}/mt76"
 
 [ -f "${DKMS_DIR}/mt7902-wifi-6.19.patch" ] && sudo patch -p1 < "${DKMS_DIR}/mt7902-wifi-6.19.patch"
 [ -f "${DKMS_DIR}/mt6639-wifi-init.patch" ] && sudo patch -p1 < "${DKMS_DIR}/mt6639-wifi-init.patch"
 [ -f "${DKMS_DIR}/mt6639-wifi-dma.patch" ] && sudo patch -p1 < "${DKMS_DIR}/mt6639-wifi-dma.patch"
+[ -f "${DKMS_DIR}/mt6639-band-idx.patch" ] && sudo patch -p6 < "${DKMS_DIR}/mt6639-band-idx.patch"
 sudo sed -i 's/kzalloc_flex(\*tid, reorder_buf, size)/kzalloc(struct_size(tid, reorder_buf, size), GFP_ATOMIC)/g' "${DKMS_DIR}/mt76/agg-rx.c"
 
 echo "Generating Build Files..."

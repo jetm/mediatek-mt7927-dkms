@@ -1,0 +1,214 @@
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7925/main.c b/drivers/net/wireless/mediatek/mt76/mt7925/main.c
+index fb801ba347af..dcaf9b65a96f 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7925/main.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7925/main.c
+@@ -400,7 +400,11 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
+ 
+ 	mconf->mt76.omac_idx = ieee80211_vif_is_mld(vif) ?
+ 			       0 : mconf->mt76.idx;
+-	mconf->mt76.band_idx = 0xff;
++	if (is_mt6639(&dev->mt76) && mvif->phy->mt76->chandef.chan)
++		mconf->mt76.band_idx = mt7925_mt6639_hw_band_from_nl(
++			mvif->phy->mt76->chandef.chan->band);
++	else
++		mconf->mt76.band_idx = 0xff;
+ 	mconf->mt76.wmm_idx = ieee80211_vif_is_mld(vif) ?
+ 			      0 : mconf->mt76.idx % MT76_CONNAC_MAX_WMM_SETS;
+ 	mconf->mt76.link_idx = hweight16(mvif->valid_links);
+@@ -417,7 +421,8 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
+ 
+ 	mlink->wcid.idx = idx;
+ 	mlink->wcid.tx_info |= MT_WCID_TX_INFO_SET;
+-	mt76_wcid_init(&mlink->wcid, 0);
++	mt76_wcid_init(&mlink->wcid,
++		       mconf->mt76.band_idx == 0xff ? 0 : mconf->mt76.band_idx);
+ 
+ 	mt7925_mac_wtbl_update(dev, idx,
+ 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+@@ -2125,9 +2130,12 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
+ {
+ 	struct mt792x_chanctx *mctx = (struct mt792x_chanctx *)ctx->drv_priv;
+ 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
++	struct mt792x_link_sta *mlink;
+ 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+ 	struct ieee80211_bss_conf *pri_link_conf;
+ 	struct mt792x_bss_conf *mconf;
++	u8 band_idx;
++	u8 old_band;
+ 
+ 	mutex_lock(&dev->mt76.mutex);
+ 
+@@ -2143,6 +2151,21 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
+ 		mconf = &mvif->bss_conf;
+ 	}
+ 
++	old_band = mconf->mt76.band_idx;
++	if (is_mt6639(&dev->mt76) && ctx->def.chan) {
++		band_idx = mt7925_mt6639_hw_band_from_nl(ctx->def.chan->band);
++		mconf->mt76.band_idx = band_idx;
++		mlink = mt792x_sta_to_link(&mvif->sta, mconf->link_id);
++		if (mlink)
++			mlink->wcid.phy_idx = band_idx;
++
++		if (old_band != band_idx && vif->type == NL80211_IFTYPE_STATION &&
++		    mlink)
++			mt76_connac_mcu_uni_add_dev(&dev->mphy, link_conf,
++						    &mconf->mt76, &mlink->wcid,
++						    true);
++	}
++
+ 	mconf->mt76.ctx = ctx;
+ 	mctx->bss_conf = mconf;
+ 	mutex_unlock(&dev->mt76.mutex);
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7925/mcu.c b/drivers/net/wireless/mediatek/mt76/mt7925/mcu.c
+index 617442f9c998..7d3ba89a98b0 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7925/mcu.c
++++ b/drivers/net/wireless/mediatek/mt76/mt7925/mcu.c
+@@ -301,16 +301,55 @@ mt7925_mcu_connection_loss_event(struct mt792x_dev *dev, struct sk_buff *skb)
+ static void
+ mt7925_mcu_roc_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+ {
+-	struct mt76_vif_link *mvif = (struct mt76_vif_link *)vif->drv_priv;
++	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
++	struct mt792x_bss_conf *mconf = NULL;
++	struct mt792x_link_sta *mlink;
+ 	struct mt7925_roc_grant_tlv *grant = priv;
++	u8 band_idx = grant->dbdcband;
++	unsigned long valid;
++	u8 i;
++
++	if (ieee80211_vif_is_mld(vif)) {
++		valid = mvif->valid_links;
++		for_each_set_bit(i, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
++			mconf = mt792x_vif_to_link(mvif, i);
++			if (mconf && mconf->mt76.idx == grant->bss_idx)
++				break;
++			mconf = NULL;
++		}
++	} else {
++		mconf = &mvif->bss_conf;
++		if (mconf->mt76.idx != grant->bss_idx)
++			mconf = NULL;
++	}
+ 
+-	if (ieee80211_vif_is_mld(vif) && vif->type == NL80211_IFTYPE_STATION)
++	if (!mconf)
+ 		return;
+ 
+-	if (mvif->idx != grant->bss_idx)
+-		return;
++	if (is_mt6639(&mvif->phy->dev->mt76)) {
++		/* mt6639 expects concrete hw bands; ignore coarse/invalid values. */
++		if (band_idx > 1) {
++			switch (grant->rfband) {
++			case 1: /* 2.4 GHz */
++				band_idx = 0;
++				break;
++			case 2: /* 5 GHz */
++			case 3: /* 6 GHz */
++				band_idx = 1;
++				break;
++			default:
++				/* keep the previously stable band assignment */
++				band_idx = mconf->mt76.band_idx <= 1 ?
++					   mconf->mt76.band_idx : 0;
++				break;
++			}
++		}
++	}
+ 
+-	mvif->band_idx = grant->dbdcband;
++	mconf->mt76.band_idx = band_idx;
++	mlink = mt792x_sta_to_link(&mvif->sta, mconf->link_id);
++	if (mlink)
++		mlink->wcid.phy_idx = band_idx;
+ }
+ 
+ static void mt7925_mcu_roc_handle_grant(struct mt792x_dev *dev,
+@@ -327,10 +366,11 @@ static void mt7925_mcu_roc_handle_grant(struct mt792x_dev *dev,
+ 
+ 	if (grant->reqtype == MT7925_ROC_REQ_ROC)
+ 		ieee80211_ready_on_channel(hw);
+-	else if (grant->reqtype == MT7925_ROC_REQ_JOIN)
++	else if (is_mt6639(&dev->mt76) || grant->reqtype == MT7925_ROC_REQ_JOIN)
+ 		ieee80211_iterate_active_interfaces_atomic(hw,
+ 						IEEE80211_IFACE_ITER_RESUME_ALL,
+ 						mt7925_mcu_roc_iter, grant);
++
+ 	dev->phy.roc_grant = true;
+ 	wake_up(&dev->phy.roc_wait);
+ 	duration = le32_to_cpu(grant->max_interval);
+@@ -1378,10 +1418,13 @@ int mt7925_mcu_set_mlo_roc(struct mt792x_bss_conf *mconf, u16 sel_links,
+ 		req.roc[i].center_chan2 = 0;
+ 		req.roc[i].center_chan2_from_ap = 0;
+ 
+-		/* STR : 0xfe indicates BAND_ALL with enabling DBDC
+-		 * EMLSR : 0xff indicates (BAND_AUTO) without DBDC
+-		 */
+-		req.roc[i].dbdcband = type == MT7925_ROC_REQ_JOIN ? 0xfe : 0xff;
++		if (is_mt6639(&mvif->phy->dev->mt76))
++			req.roc[i].dbdcband = mt7925_mt6639_hw_band_from_nl(chan->band);
++		else
++			/* STR : 0xfe indicates BAND_ALL with enabling DBDC
++			 * EMLSR : 0xff indicates (BAND_AUTO) without DBDC
++			 */
++			req.roc[i].dbdcband = type == MT7925_ROC_REQ_JOIN ? 0xfe : 0xff;
+ 
+ 		if (chan->hw_value < center_ch)
+ 			req.roc[i].sco = 1; /* SCA */
+@@ -1419,9 +1462,11 @@ int mt7925_mcu_set_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf,
+ 			.bw_from_ap = CMD_CBW_20MHZ,
+ 			.center_chan = center_ch,
+ 			.center_chan_from_ap = center_ch,
+-			.dbdcband = 0xff, /* auto */
+-		},
+-	};
++				.dbdcband = is_mt6639(&dev->mt76) ?
++					    mt7925_mt6639_hw_band_from_nl(chan->band) :
++					    0xff, /* auto */
++			},
++		};
+ 
+ 	if (chan->hw_value < center_ch)
+ 		req.roc.sco = 1; /* SCA */
+@@ -1466,9 +1511,11 @@ int mt7925_mcu_abort_roc(struct mt792x_phy *phy, struct mt792x_bss_conf *mconf,
+ 			.len = cpu_to_le16(sizeof(struct roc_abort_tlv)),
+ 			.tokenid = token_id,
+ 			.bss_idx = mconf->mt76.idx,
+-			.dbdcband = 0xff, /* auto*/
+-		},
+-	};
++				.dbdcband = is_mt6639(&dev->mt76) && mconf->mt76.band_idx <= 1 ?
++					    mconf->mt76.band_idx :
++					    0xff, /* auto */
++			},
++		};
+ 
+ 	return mt76_mcu_send_msg(&dev->mt76, MCU_UNI_CMD(ROC),
+ 				 &req, sizeof(req), true);
+@@ -2498,6 +2545,9 @@ mt7925_mcu_bss_basic_tlv(struct sk_buff *skb,
+ 	basic_req->phymode_ext = mt7925_get_phy_mode_ext(phy, vif, band,
+ 							 link_sta);
+ 
++	if (is_mt6639(phy->dev))
++		mconf->mt76.band_idx = mt7925_mt6639_hw_band_from_nl(band);
++
+ 	if (band == NL80211_BAND_2GHZ)
+ 		basic_req->nonht_basic_phy = cpu_to_le16(PHY_TYPE_ERP_INDEX);
+ 	else
+diff --git a/drivers/net/wireless/mediatek/mt76/mt7925/mt7925.h b/drivers/net/wireless/mediatek/mt76/mt7925/mt7925.h
+index cc7386fe7703..b206606fff69 100644
+--- a/drivers/net/wireless/mediatek/mt76/mt7925/mt7925.h
++++ b/drivers/net/wireless/mediatek/mt76/mt7925/mt7925.h
+@@ -63,6 +63,11 @@ enum mt7925_roc_req {
+ 	MT7925_ROC_REQ_NUM
+ };
+ 
++static inline u8 mt7925_mt6639_hw_band_from_nl(enum nl80211_band band)
++{
++	return band == NL80211_BAND_2GHZ ? 0 : 1;
++}
++
+ enum {
+ 	UNI_EVENT_ROC_GRANT = 0,
+ 	UNI_EVENT_ROC_GRANT_SUB_LINK = 4,

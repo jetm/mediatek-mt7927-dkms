@@ -11,7 +11,7 @@ PKG_VER="1.5"
 DKMS_DIR="/usr/src/${PKG_NAME}-${PKG_VER}"
 BASE_URL="https://git.kernel.org/pub/scm/linux/kernel/git/stable/linux.git/plain/drivers/bluetooth"
 
-echo "=== MT7927 Bluetooth Driver Installation Script ==="
+echo "=== MT7927 Bluetooth Driver Installation Script (Forced Patching) ==="
 
 # 1. FIRMWARE PLACEMENT
 echo "[1/4] Setting up Bluetooth Firmware..."
@@ -50,7 +50,7 @@ for f in "btusb.c" "btmtk.c" "btmtk.h" "btintel.h" "btbcm.h" "btrtl.h"; do dl_fi
 
 echo "Applying Source Compatibility & Device ID Fixes..."
 # 1. Add your ROG board's ID (0489:e13a) so the driver claims the card
-sudo sed -i '/{ USB_DEVICE(0x0489, 0xe133) }/a \	{ USB_DEVICE(0x0489, 0xe13a), .driver_info = BTUSB_MEDIATEK | BTUSB_WIDEBAND_SPEECH | BTUSB_VALID_LE_STATES },' "${DKMS_DIR}/drivers/bluetooth/btusb.c"
+sudo sed -i '/{ USB_DEVICE(0x0489, 0xe133) }/a \	{ USB_DEVICE(0x0489, 0xe13a), .driver_info = BTUSB_MEDIATEK | BTUSB_WIDEBAND_SPEECH | BTUSB_VALID_LE_STATES },' "${DKMS_DIR}/drivers/bluetooth/btusb.c" || true
 
 # 2. Fix the kmalloc_obj / kzalloc_obj errors found in newer kernels
 sudo sed -i 's/kmalloc_obj(\*\(.*\))/kmalloc(sizeof(*\1), GFP_KERNEL)/g' "${DKMS_DIR}/drivers/bluetooth/btmtk.c" || true
@@ -60,13 +60,19 @@ sudo sed -i 's/kzalloc_obj(\*\(.*\))/kzalloc(sizeof(*\1), GFP_KERNEL)/g' "${DKMS
 # 3. Fix the "hci_discovery_active" undefined error
 sudo sed -i 's/hci_discovery_active(hdev)/ (hdev->discovery.state != DISCOVERY_STOPPED) /g' "${DKMS_DIR}/drivers/bluetooth/btusb.c" || true
 
-echo "Applying Bluetooth Patch..."
+echo "Applying jetm Bluetooth Patch..."
 if [ -f "mt6639-bt-6.19.patch" ]; then
     sudo cp mt6639-bt-6.19.patch "${DKMS_DIR}/"
     cd "${DKMS_DIR}"
-    sudo patch -p1 < mt6639-bt-6.19.patch
+    echo "==> Forcibly applying mt6639-bt-6.19.patch..."
+    if ! sudo patch -p1 --forward < mt6639-bt-6.19.patch; then
+        echo "==> Patch failed to apply cleanly, attempting fuzzy match..."
+        sudo patch -p1 --forward --fuzz=3 < mt6639-bt-6.19.patch
+    fi
+    echo "==> Patch applied successfully"
 else
-    echo "Note: mt6639-bt-6.19.patch not found in current directory. Skipping local patch."
+    echo "!!! ERROR: mt6639-bt-6.19.patch not found in current directory. Essential fixes missing!"
+    exit 1
 fi
 
 echo "Generating Build Files..."
