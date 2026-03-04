@@ -5,7 +5,7 @@
 #     and installs firmware extracted from the MediaTek driver package.
 #   - WiFi (MT7925e via PCIe): WORKING - patches mt7925e driver with MT6639
 #     CBTOP remap, DMA ring layout, DBDC dual-band, and CNM channel context.
-#     Both 2.4GHz and 5GHz tested.
+#     2.4GHz, 5GHz, 6GHz and dual-link MLO tested.
 #
 # Sources mt76 + btusb from the kernel tarball (cdn.kernel.org) to avoid
 # kernel.org CGI rate limits (503 errors after ~50 requests).
@@ -72,6 +72,7 @@ source=(
   'mt7902-wifi-6.19.patch'
   'mt6639-wifi-init.patch'
   'mt6639-wifi-dma.patch'
+  'mt6639-wifi-mlo.patch'
   'extract_firmware.py'
   'dkms.conf'
   'dkms-patchmodule.sh'
@@ -81,6 +82,7 @@ sha256sums=('279b3bc4c11d1805a9ca1665272207d3d1985e38eeffefd50f7ab990fe89c8ac'
             '736d3fcd477e380a1b3e9f2a3d424ec4473535ead44e8c8ac8f515d886b8fdfa'
             'a54284178855f1a9120d3d36f76a60cb83491097da86eb316b4f557b9db04476'
             '5c2eaaa90b85cf1db8641879acf63b1f029388096a747f8294689583bd2332d1'
+            '1cec307ac9e8ac0bc374df1f8f8486ecd4e8056555aa7542e198d4ae98eb6b72'
             'e94c77671abe0d589faa01c1a9451f626b1fc45fb04f765b43fd0e126d01a436'
             '9f4a0d13e782582c3f0cf59f66cfa0084d08473ada76067dbcb85ee8d9988b26'
             'a08e538116e96106c564daa701a3f364f3018f035b4ac6955cd68afcbff841f7')
@@ -186,6 +188,9 @@ build() {
 
   echo "Applying mt6639-wifi-dma.patch..."
   patch -p1 < "${srcdir}/mt6639-wifi-dma.patch"
+
+  echo "Applying mt6639-wifi-mlo.patch..."
+  patch -p1 < "${srcdir}/mt6639-wifi-mlo.patch"
 
   # Create Kbuild files for out-of-tree mt76 build
   cat > "${srcdir}/mt76/Kbuild" <<'EOF'

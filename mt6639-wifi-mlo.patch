@@ -1,0 +1,378 @@
+--- a/mt7925/mt7925.h	2026-03-05 00:45:19.807649516 +0800
++++ b/mt7925/mt7925.h	2026-03-05 00:46:00.504941893 +0800
+@@ -63,6 +63,11 @@
+ 	MT7925_ROC_REQ_NUM
+ };
+ 
++static inline u8 mt7925_mt6639_hw_band_from_nl(enum nl80211_band band)
++{
++	return band == NL80211_BAND_2GHZ ? 0 : 1;
++}
++
+ enum {
+ 	UNI_EVENT_ROC_GRANT = 0,
+ 	UNI_EVENT_ROC_GRANT_SUB_LINK = 4,
+--- a/mt7925/init.c	2026-03-05 00:45:19.807246815 +0800
++++ b/mt7925/init.c	2026-03-05 00:46:00.505774823 +0800
+@@ -167,6 +167,12 @@
+ 	mt7925_set_stream_he_eht_caps(&dev->phy);
+ 	mt792x_config_mac_addr_list(dev);
+ 
++	/* MT6639/MT7927: firmware doesn't report MLO capability in NIC_CAP.
++	 * Force MLO_EN so mt7925_init_mlo_caps() sets WIPHY_FLAG_SUPPORTS_MLO.
++	 * Similar to the CNM force hack in pci.c probe. */
++	if (is_mt6639(&dev->mt76))
++		dev->phy.chip_cap |= MT792x_CHIP_CAP_MLO_EN;
++
+ 	ret = mt7925_init_mlo_caps(&dev->phy);
+ 	if (ret) {
+ 		dev_err(dev->mt76.dev, "MLO init failed\n");
+@@ -180,6 +186,24 @@
+ 		return;
+ 	}
+ 
++	/* MT6639: clear NO_IR on 6GHz channels for indoor active scanning.
++	 * cfg80211 world regdom sets NO_IR on all 6GHz; we clear it here
++	 * since MT6639 hardware supports 6GHz active scan (LPI mode).
++	 */
++	if (is_mt6639(&dev->mt76)) {
++		struct ieee80211_supported_band *sband;
++
++		sband = dev->mt76.hw->wiphy->bands[NL80211_BAND_6GHZ];
++		if (sband) {
++			int j;
++			for (j = 0; j < sband->n_channels; j++)
++				sband->channels[j].flags &= ~IEEE80211_CHAN_NO_IR;
++			dev_info(dev->mt76.dev,
++				 "MT6639: cleared NO_IR on %d 6GHz channels\n",
++				 sband->n_channels);
++		}
++	}
++
+ 	ret = mt7925_init_debugfs(dev);
+ 	if (ret) {
+ 		dev_err(dev->mt76.dev, "register debugfs failed\n");
+--- a/mt7925/regd.c	2026-03-05 00:45:19.805162633 +0800
++++ b/mt7925/regd.c	2026-03-05 00:47:21.674967441 +0800
+@@ -125,6 +125,13 @@
+ 
+ 		if (!dev->has_eht)
+ 			ch->flags |= IEEE80211_CHAN_NO_EHT;
++
++		/* MT6639: clear NO_IR on 6GHz for indoor MLO testing.
++		 * cfg80211 adds NO_IR for all 6GHz channels globally;
++		 * MT6639 hardware supports 6GHz active scanning.
++		 */
++		if (is_mt6639(&dev->mt76))
++			ch->flags &= ~IEEE80211_CHAN_NO_IR;
+ 	}
+ }
+ 
+--- a/mt7925/main.c	2026-03-05 00:45:19.807325015 +0800
++++ b/mt7925/main.c	2026-03-05 00:47:14.696979672 +0800
+@@ -398,9 +398,37 @@
+ 		}
+ 	}
+ 
+-	mconf->mt76.omac_idx = ieee80211_vif_is_mld(vif) ?
+-			       0 : mconf->mt76.idx;
+-	mconf->mt76.band_idx = 0xff;
++	/* MT6639 STR MLO: each link needs unique omac_idx for firmware
++	 * to distinguish links on different bands. mt7925 eMLSR uses 0
++	 * because single radio. MT6639 has 2 radios (band0=2.4G, band1=5/6G).
++	 */
++	if (ieee80211_vif_is_mld(vif) && is_mt6639(&dev->mt76))
++		mconf->mt76.omac_idx = mconf->mt76.idx;
++	else if (ieee80211_vif_is_mld(vif))
++		mconf->mt76.omac_idx = 0;
++	else
++		mconf->mt76.omac_idx = mconf->mt76.idx;
++
++	/* For MT6639 MLO secondary links, use link_conf channel if available
++	 * to avoid sending DEV_INFO with wrong band_idx.
++	 * assign_vif_chanctx will correct and resend if needed.
++	 */
++	if (is_mt6639(&dev->mt76)) {
++		struct ieee80211_channel *chan = NULL;
++
++		if (link_conf->chanreq.oper.chan)
++			chan = link_conf->chanreq.oper.chan;
++		else if (mvif->phy->mt76->chandef.chan)
++			chan = mvif->phy->mt76->chandef.chan;
++
++		if (chan)
++			mconf->mt76.band_idx =
++				mt7925_mt6639_hw_band_from_nl(chan->band);
++		else
++			mconf->mt76.band_idx = 0xff;
++	} else {
++		mconf->mt76.band_idx = 0xff;
++	}
+ 	mconf->mt76.wmm_idx = ieee80211_vif_is_mld(vif) ?
+ 			      0 : mconf->mt76.idx % MT76_CONNAC_MAX_WMM_SETS;
+ 	mconf->mt76.link_idx = hweight16(mvif->valid_links);
+@@ -417,7 +445,8 @@
+ 
+ 	mlink->wcid.idx = idx;
+ 	mlink->wcid.tx_info |= MT_WCID_TX_INFO_SET;
+-	mt76_wcid_init(&mlink->wcid, 0);
++	mt76_wcid_init(&mlink->wcid,
++		       mconf->mt76.band_idx == 0xff ? 0 : mconf->mt76.band_idx);
+ 
+ 	mt7925_mac_wtbl_update(dev, idx,
+ 			       MT_WTBL_UPDATE_ADM_COUNT_CLEAR);
+@@ -1025,16 +1054,20 @@
+ 	enum nl80211_band band = chandef->chan->band, secondary_band;
+ 
+ 	u16 sel_links = mt76_select_links(vif, 2);
+-	u8 secondary_link_id = __ffs(~BIT(mvif->deflink_id) & sel_links);
++	u8 secondary_link_id;
+ 
+ 	if (!ieee80211_vif_is_mld(vif) || hweight16(sel_links) < 2)
+ 		return;
+ 
++	secondary_link_id = __ffs(~BIT(mvif->deflink_id) & sel_links);
+ 	link_conf = mt792x_vif_to_bss_conf(vif, secondary_link_id);
+ 	secondary_band = link_conf->chanreq.oper.chan->band;
+ 
+-	if (band == NL80211_BAND_2GHZ ||
+-	    (band == NL80211_BAND_5GHZ && secondary_band == NL80211_BAND_6GHZ)) {
++	/* MT6639 STR: any cross-band combination needs MLO ROC.
++	 * Original code only covered 2.4G primary or 5G+6G combo.
++	 * MT6639 has 2 radios: band0=2.4G, band1=5G/6G.
++	 */
++	if (band != secondary_band) {
+ 		mt7925_abort_roc(mvif->phy, &mvif->bss_conf);
+ 
+ 		mt792x_mutex_acquire(dev);
+@@ -2119,9 +2152,12 @@
+ {
+ 	struct mt792x_chanctx *mctx = (struct mt792x_chanctx *)ctx->drv_priv;
+ 	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
++	struct mt792x_link_sta *mlink;
+ 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+ 	struct ieee80211_bss_conf *pri_link_conf;
+ 	struct mt792x_bss_conf *mconf;
++	u8 band_idx;
++	u8 old_band;
+ 
+ 	mutex_lock(&dev->mt76.mutex);
+ 
+@@ -2137,6 +2173,21 @@
+ 		mconf = &mvif->bss_conf;
+ 	}
+ 
++	old_band = mconf->mt76.band_idx;
++	if (is_mt6639(&dev->mt76) && ctx->def.chan) {
++		band_idx = mt7925_mt6639_hw_band_from_nl(ctx->def.chan->band);
++		mconf->mt76.band_idx = band_idx;
++		mlink = mt792x_sta_to_link(&mvif->sta, mconf->link_id);
++		if (mlink)
++			mlink->wcid.phy_idx = band_idx;
++
++		if (old_band != band_idx && vif->type == NL80211_IFTYPE_STATION &&
++		    mlink)
++			mt76_connac_mcu_uni_add_dev(&dev->mphy, link_conf,
++						    &mconf->mt76, &mlink->wcid,
++						    true);
++	}
++
+ 	mconf->mt76.ctx = ctx;
+ 	mctx->bss_conf = mconf;
+ 	mutex_unlock(&dev->mt76.mutex);
+--- a/mt792x_mac.c	2026-03-05 00:45:19.805216013 +0800
++++ b/mt792x_mac.c	2026-03-05 00:46:00.508340703 +0800
+@@ -146,8 +146,13 @@
+ 	if (unicast || !wcid)
+ 		return wcid;
+ 
+-	if (!wcid->sta)
+-		return NULL;
++	if (!wcid->sta) {
++		/* BSS self-STA WCID (sta=0): firmware uses this for
++		 * broadcast/multicast RX in MLO mode. Return the VIF's
++		 * deflink WCID so mac80211 can deliver 802.3 frames.
++		 */
++		return wcid->def_wcid;
++	}
+ 
+ 	link = container_of(wcid, struct mt792x_link_sta, wcid);
+ 	sta = link->sta;
+--- a/mt7925/mcu.c	2026-03-05 00:45:19.807554726 +0800
++++ b/mt7925/mcu.c	2026-03-05 00:47:20.034970394 +0800
+@@ -301,16 +301,53 @@
+ static void
+ mt7925_mcu_roc_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
+ {
+-	struct mt76_vif_link *mvif = (struct mt76_vif_link *)vif->drv_priv;
++	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
++	struct mt792x_bss_conf *mconf = NULL;
++	struct mt792x_link_sta *mlink;
+ 	struct mt7925_roc_grant_tlv *grant = priv;
++	u8 band_idx = grant->dbdcband;
++	unsigned long valid;
++	u8 i;
++
++	if (ieee80211_vif_is_mld(vif)) {
++		valid = mvif->valid_links;
++		for_each_set_bit(i, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
++			mconf = mt792x_vif_to_link(mvif, i);
++			if (mconf && mconf->mt76.idx == grant->bss_idx)
++				break;
++			mconf = NULL;
++		}
++	} else {
++		mconf = &mvif->bss_conf;
++		if (mconf->mt76.idx != grant->bss_idx)
++			mconf = NULL;
++	}
+ 
+-	if (ieee80211_vif_is_mld(vif) && vif->type == NL80211_IFTYPE_STATION)
++	if (!mconf)
+ 		return;
+ 
+-	if (mvif->idx != grant->bss_idx)
+-		return;
++	if (is_mt6639(&mvif->phy->dev->mt76)) {
++		if (band_idx > 1) {
++			switch (grant->rfband) {
++			case 1: /* 2.4 GHz */
++				band_idx = 0;
++				break;
++			case 2: /* 5 GHz */
++			case 3: /* 6 GHz */
++				band_idx = 1;
++				break;
++			default:
++				band_idx = mconf->mt76.band_idx <= 1 ?
++					   mconf->mt76.band_idx : 0;
++				break;
++			}
++		}
++	}
+ 
+-	mvif->band_idx = grant->dbdcband;
++	mconf->mt76.band_idx = band_idx;
++	mlink = mt792x_sta_to_link(&mvif->sta, mconf->link_id);
++	if (mlink)
++		mlink->wcid.phy_idx = band_idx;
+ }
+ 
+ static void mt7925_mcu_roc_handle_grant(struct mt792x_dev *dev,
+@@ -327,10 +364,11 @@
+ 
+ 	if (grant->reqtype == MT7925_ROC_REQ_ROC)
+ 		ieee80211_ready_on_channel(hw);
+-	else if (grant->reqtype == MT7925_ROC_REQ_JOIN)
++	else if (is_mt6639(&dev->mt76) || grant->reqtype == MT7925_ROC_REQ_JOIN)
+ 		ieee80211_iterate_active_interfaces_atomic(hw,
+ 						IEEE80211_IFACE_ITER_RESUME_ALL,
+ 						mt7925_mcu_roc_iter, grant);
++
+ 	dev->phy.roc_grant = true;
+ 	wake_up(&dev->phy.roc_wait);
+ 	duration = le32_to_cpu(grant->max_interval);
+@@ -1378,10 +1416,13 @@
+ 		req.roc[i].center_chan2 = 0;
+ 		req.roc[i].center_chan2_from_ap = 0;
+ 
+-		/* STR : 0xfe indicates BAND_ALL with enabling DBDC
+-		 * EMLSR : 0xff indicates (BAND_AUTO) without DBDC
+-		 */
+-		req.roc[i].dbdcband = type == MT7925_ROC_REQ_JOIN ? 0xfe : 0xff;
++		if (is_mt6639(&mvif->phy->dev->mt76))
++			req.roc[i].dbdcband = mt7925_mt6639_hw_band_from_nl(chan->band);
++		else
++			/* STR : 0xfe indicates BAND_ALL with enabling DBDC
++			 * EMLSR : 0xff indicates (BAND_AUTO) without DBDC
++			 */
++			req.roc[i].dbdcband = type == MT7925_ROC_REQ_JOIN ? 0xfe : 0xff;
+ 
+ 		if (chan->hw_value < center_ch)
+ 			req.roc[i].sco = 1; /* SCA */
+@@ -1419,7 +1460,9 @@
+ 			.bw_from_ap = CMD_CBW_20MHZ,
+ 			.center_chan = center_ch,
+ 			.center_chan_from_ap = center_ch,
+-			.dbdcband = 0xff, /* auto */
++			.dbdcband = is_mt6639(&dev->mt76) ?
++				    mt7925_mt6639_hw_band_from_nl(chan->band) :
++				    0xff, /* auto */
+ 		},
+ 	};
+ 
+@@ -1466,7 +1509,9 @@
+ 			.len = cpu_to_le16(sizeof(struct roc_abort_tlv)),
+ 			.tokenid = token_id,
+ 			.bss_idx = mconf->mt76.idx,
+-			.dbdcband = 0xff, /* auto*/
++			.dbdcband = is_mt6639(&dev->mt76) && mconf->mt76.band_idx <= 1 ?
++				    mconf->mt76.band_idx :
++				    0xff, /* auto */
+ 		},
+ 	};
+ 
+@@ -1928,7 +1973,7 @@
+ 	memcpy(mld->mac_addr, sta->addr, ETH_ALEN);
+ 	mld->primary_id = cpu_to_le16(msta->deflink.wcid.idx);
+ 	mld->wlan_id = cpu_to_le16(msta->deflink.wcid.idx);
+-	mld->link_num = min_t(u8, hweight16(mvif->valid_links), 2);
++	mld->link_num = min_t(u8, hweight16(mvif->valid_links), 3);
+ 
+ 	for_each_set_bit(i, &valid, IEEE80211_MLD_MAX_NUM_LINKS) {
+ 		if (cnt == mld->link_num)
+@@ -1942,6 +1987,7 @@
+ 		if (mlink != &msta->deflink)
+ 			mld->secondary_id = cpu_to_le16(mlink->wcid.idx);
+ 	}
++
+ }
+ 
+ static void
+@@ -2498,6 +2544,9 @@
+ 	basic_req->phymode_ext = mt7925_get_phy_mode_ext(phy, vif, band,
+ 							 link_sta);
+ 
++	if (is_mt6639(phy->dev))
++		mconf->mt76.band_idx = mt7925_mt6639_hw_band_from_nl(band);
++
+ 	if (band == NL80211_BAND_2GHZ)
+ 		basic_req->nonht_basic_phy = cpu_to_le16(PHY_TYPE_ERP_INDEX);
+ 	else
+@@ -2648,20 +2697,29 @@
+ 	tlv = mt76_connac_mcu_add_tlv(skb, UNI_BSS_INFO_MLD, sizeof(*mld));
+ 	mld = (struct bss_mld_tlv *)tlv;
+ 
++	/* +0x04: link_id — Win RE: 0xFF(non-MLO) or link_info[2] */
+ 	mld->link_id = is_mld ? link_conf->link_id : 0xff;
+-	/* apply the index of the primary link */
+-	mld->group_mld_id = is_mld ? mvif->bss_conf.mt76.idx : 0xff;
+-	mld->own_mld_id = mconf->mt76.idx + 32;
+-	mld->remap_idx = 0xff;
+-
++	/* +0x05: group_mld_id — Win RE: adapter[0x24](non-MLO) or MLD group */
++	mld->group_mld_id = is_mld ? mvif->bss_conf.mt76.idx : mconf->mt76.idx;
++	/* +0x06: mac_addr — Win RE: adapter[0x2CC] (6 bytes) */
++	memcpy(mld->mac_addr, vif->addr, ETH_ALEN);
++	/* +0x0C: band_idx — Win RE: 0xFF(non-MLO) or link_info[3] */
++	mld->band_idx = is_mld ? mconf->mt76.band_idx : 0xff;
++	/* +0x0D: omac_idx — Win RE: 0xFF(non-MLO) or sta_rec[0x8fb] */
++	mld->omac_idx = is_mld ? mconf->mt76.omac_idx : 0xff;
++	/* +0x0E: remap_idx — Win RE Agent B: zeroed (R15W) for both paths */
++	mld->remap_idx = 0;
++	/* +0x0F: eml_enable — Win RE: 0 or 1 conditional */
+ 	if (phy->chip_cap & MT792x_CHIP_CAP_MLO_EML_EN) {
+ 		mld->eml_enable = !!(link_conf->vif->cfg.eml_cap &
+ 				     IEEE80211_EML_CAP_EMLSR_SUPP);
+ 	} else {
+ 		mld->eml_enable = 0;
+ 	}
+-
+-	memcpy(mld->mac_addr, vif->addr, ETH_ALEN);
++	/* +0x10: str_opmode — Win RE: 0(non-MLO) or link_info[0x10] */
++	mld->str_opmode = 0;
++	/* +0x11: link_opmode — Win RE: link_info[1] (MLO only) */
++	mld->link_opmode = 0;
+ }
+ 
+ static void
