@@ -14,9 +14,12 @@ device ID and firmware patches not yet in mainline. Distributed as an
 | WiFi (MT7925e via PCIe) | **WORKING** | 2.4/5/6 GHz, 320MHz, PM, suspend/resume |
 
 **Known issues:**
-- 5/6 GHz WPA authentication may need 1-2 retries (firmware handshake timeout)
 - TX retransmissions elevated vs baseline (firmware-side, not driver-fixable)
-- AP mode and MLO not supported (firmware limitation)
+
+**Recently fixed:**
+- 5/6 GHz WPA 4WAY_HANDSHAKE_TIMEOUT - fixed by explicit band_idx assignment
+- AP mode - working on 2.4/5/6 GHz (SAE and PSK)
+- MLO (Multi-Link Operation) - STR dual-link working (2.4+5 GHz, 2.4+6 GHz)
 
 ## Supported hardware
 
@@ -30,6 +33,7 @@ device ID and firmware patches not yet in mainline. Distributed as an
 | TP-Link Archer TBE550E PCIe | 0489:e116 | 14c3:7927 |
 | ASUS ProArt X870E | - | 14c3:7927 |
 | ASUS X870E-E | 13d3:3588 | 14c3:7927 |
+| Gigabyte Z790 AORUS MASTER X | 0489:e10f | 14c3:7927 |
 
 Check if your hardware is detected:
 
@@ -139,35 +143,12 @@ See the [mt76#927](https://github.com/openwrt/mt76/issues/927) tracking issue.
 Submit WiFi patches to linux-wireless@ and BT firmware to linux-firmware. Once
 merged, this package becomes unnecessary for kernels that include MT6639 support.
 
-### EAPOL 5/6 GHz investigation
-
-WPA handshake fails on the first attempt on 5/6 GHz bands (MT6639 only - MT7925
-works fine). The driver correctly delays RX header translation until key install,
-but MT6639 firmware appears to enable its own fast-path RX processing early, eating
-EAPOL frames before the 4-way handshake completes. Evidence:
-
-- The driver sends `dis_rx_hdr_tran = true` before key install, but firmware ignores
-  it on MT6639
-- Patching the driver side was confirmed as a no-op
-- Open 5 GHz networks work (no 4-way handshake needed)
-- 2.4 GHz WPA works (different firmware timing or lower latency)
-
-**What RE work would help:** capture the MCU command sequence during a Windows 5 GHz
-WPA connection and compare against Linux. Specifically:
-
-- When does the Windows driver enable `STA_REC_HDR_TRANS` relative to the 4-way
-  handshake?
-- Does Windows send additional connection state values or TLVs that Linux omits?
-- Are there MT6639-specific MCU commands (fast-path config, RX offload, EAPOL
-  filter) that Linux doesn't send?
-
 ### Firmware dependencies
 
 These issues are firmware-controlled and cannot be fixed in the driver:
 
 - **TX retransmissions** - ~35% retry rate at 320MHz, firmware manages rate
   adaptation and retry logic
-- **AP mode / MLO** - firmware does not support access point or multi-link operation
 
 See [mt76#927](https://github.com/openwrt/mt76/issues/927) for detailed discussion.
 
