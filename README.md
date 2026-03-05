@@ -18,8 +18,7 @@ device ID and firmware patches not yet in mainline. Distributed as an
 
 **Recently fixed:**
 - 5/6 GHz WPA 4WAY_HANDSHAKE_TIMEOUT - fixed by explicit band_idx assignment
-- AP mode - working on 2.4/5/6 GHz (SAE and PSK)
-- MLO (Multi-Link Operation) - STR dual-link working (2.4+5 GHz, 2.4+6 GHz)
+- EAPOL connection state progression for reliable WPA handshake
 
 ## Supported hardware
 
@@ -135,8 +134,9 @@ sudo dkms install mediatek-mt7927/2.1
 
 ## Upstream tracking
 
-Patches are prepared for upstream submission but not yet sent to linux-wireless@.
-See the [mt76#927](https://github.com/openwrt/mt76/issues/927) tracking issue.
+WiFi patches under review at [#15](https://github.com/jetm/mediatek-mt7927-dkms/issues/15).
+BT patches sent to linux-bluetooth@ ([#16](https://github.com/jetm/mediatek-mt7927-dkms/issues/16)).
+See [mt76#927](https://github.com/openwrt/mt76/issues/927) for the tracking issue.
 
 ## Roadmap
 
