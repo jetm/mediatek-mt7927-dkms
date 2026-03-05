@@ -20,6 +20,7 @@ standalone chip may not support 320MHz operation.
 
 Assisted-by: Claude Code <noreply@anthropic.com> [claude-opus-4-6]
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 31597ed5c4b8487482473faf36f33325e227dd68
 diff --git a/mt7925/main.c b/mt7925/main.c

@@ -18,6 +18,7 @@ Three MT7927-specific fixes for WiFi functionality:
    silently dropped. Force the CNM flag and restore mt7925_ops.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 a0a3840aac9d966199f1d769e6c5fc5c794a012f
 diff --git a/mt7925/init.c b/mt7925/init.c

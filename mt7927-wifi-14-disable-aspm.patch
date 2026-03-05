@@ -23,7 +23,8 @@ The pci_disable_link_state() call persists across suspend/resume.
 
 Reported-by: cmspam (GitHub)
 Tested-by: cmspam (GitHub)
-Signed-off-by: Javier Martinez Canillas <jetm@users.noreply.github.com>
+Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 046845a082fd969760ddcb1ed1be3e1f78832a5b
 diff --git a/mt7925/pci.c b/mt7925/pci.c

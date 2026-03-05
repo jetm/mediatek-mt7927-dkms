@@ -8,6 +8,7 @@ MT7927-specific handling.
 Also add 0x7927 to is_mt76_fw_txp() to match MT7925's TXP format.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 491ddf8f998a6b01fe504389bb7e44f6ea10c068
 diff --git a/mt76_connac.h b/mt76_connac.h

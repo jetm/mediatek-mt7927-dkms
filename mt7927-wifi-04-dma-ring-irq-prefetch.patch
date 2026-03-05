@@ -20,6 +20,7 @@ Ring layout and prefetch values derived from Loong0x00's
 reverse-engineered MT7927 driver.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 892926dbfc62adc50a4a6720bc3439fa80132e26
 diff --git a/mt7925/mt7925.h b/mt7925/mt7925.h

@@ -9,6 +9,7 @@ Replace with the per-chip irq_map fields so the correct interrupt bits
 are enabled regardless of the chip variant.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 30c93283a13fd560cab93c07fc191f0388c0b017
 diff --git a/mt7925/pci.c b/mt7925/pci.c

@@ -13,6 +13,7 @@ Also fix whitespace alignment in mt792x_regs.h defines.
 
 Assisted-by: Claude Code <noreply@anthropic.com> [claude-opus-4-6]
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 a9e634bfa38bb4e66f6bd86c9c8a6e6b12191383
 diff --git a/mt7925/mac.c b/mt7925/mac.c

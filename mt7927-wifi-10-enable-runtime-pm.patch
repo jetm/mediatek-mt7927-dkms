@@ -25,6 +25,7 @@ is_mt7927() guard that disabled runtime PM and deep sleep. Let the
 standard mt792x power management work for MT7927 hardware.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 12acaac9b87fd6aa799feab308759c284d921978
 diff --git a/mt7925/init.c b/mt7925/init.c

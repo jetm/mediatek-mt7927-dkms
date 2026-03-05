@@ -10,6 +10,7 @@ SET_OWN/CLR_OWN cycle in mt7925e_mcu_init() to preserve that
 configuration.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 23a215293c981de4f694089be4000003aefafd2a
 diff --git a/mt7925/pci_mcu.c b/mt7925/pci_mcu.c

@@ -14,8 +14,9 @@ wrong register address (MT_WFDMA0 base 0xd4000 instead of MT_UWFDMA0
 base 0x24000). The correct BIT(28) write is already handled by
 mt792x_dma_enable() via MT_UWFDMA0_GLO_CFG_EXT1.
 
-Reported-by: Loong0x00 <Loong0x00@users.noreply.github.com>
+Reported-by: 张旭涵 <Loong.0x00@gmail.com>
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 a9f89a48c9b8f8f2f280e16eb8d4bdf3dd1b834e
 diff --git a/mt7925/pci.c b/mt7925/pci.c

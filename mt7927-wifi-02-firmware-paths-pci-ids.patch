@@ -12,6 +12,7 @@ Known hardware using these IDs:
   - AMD RZ738 (MediaTek MT7927) (14c3:0738)
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 098df91c86fdcd3e4895c87311d34f4457315eef
 diff --git a/mt7925/pci.c b/mt7925/pci.c

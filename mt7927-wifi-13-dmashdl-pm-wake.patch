@@ -12,6 +12,7 @@ mt792x_dma_enable() so all three MT7927-specific GLO_CFG bits are
 consistently restored after PM wake.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 9636166a349dbc2f219605cf73d9239388edde7b
 diff --git a/mt792x_dma.c b/mt792x_dma.c

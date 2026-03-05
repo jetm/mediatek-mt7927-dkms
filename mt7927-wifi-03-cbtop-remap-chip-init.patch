@@ -23,6 +23,7 @@ Register values derived from Loong0x00's reverse-engineered MT7927
 driver.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
+Tested-by: Marcin FM <marcin@lgic.pl>
 
 ed0992e00b736f2ef43214ad33ce42d30a4f4d76
 diff --git a/mt7925/pci.c b/mt7925/pci.c
