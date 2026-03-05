@@ -163,15 +163,123 @@ check_firmware() {
 	hw_ver="$(echo "$mt_dmesg" | grep -oP 'HW/SW Version:\s*\K[^,]+' | tail -1 || true)"
 	wm_ver="$(echo "$mt_dmesg" | grep -oP 'WM Firmware Version:\s*\K[^,]+' | tail -1 || true)"
 
-	if [[ -n "$hw_ver" || -n "$wm_ver" ]]; then
-		ok "HW ${hw_ver:-?}, WM ${wm_ver:-?}"
-	else
+	if [[ -z "$hw_ver" && -z "$wm_ver" ]]; then
 		fail "no firmware version in dmesg"
+		return
+	fi
+
+	# Check for CBTOP remap failure (all-zeros HW version)
+	if [[ "$hw_ver" == "0x00000000" ]]; then
+		fail "CBTOP remap failed (HW version 0x00000000)"
+		return
+	fi
+
+	ok "HW ${hw_ver:-?}, WM ${wm_ver:-?}"
+}
+
+# ---------------------------------------------------------------------------
+# 7b. ASPM status (MT7927 needs ASPM disabled)
+# ---------------------------------------------------------------------------
+check_aspm() {
+	local dmesg_out=""
+	dmesg_out="$(dmesg 2>/dev/null || sudo dmesg 2>/dev/null || true)"
+
+	if [[ -z "$dmesg_out" ]]; then
+		skip "dmesg not accessible"
+		return
+	fi
+
+	# Check if the driver disabled ASPM at probe
+	if echo "$dmesg_out" | has_match 'mt7925e.*disabling ASPM'; then
+		ok "disabled by driver"
+		return
+	fi
+
+	# Check if disabled via module parameter
+	if echo "$dmesg_out" | has_match 'mt7925e.disable_aspm=1'; then
+		ok "disabled via module param"
+		return
+	fi
+
+	# If MT7927 but no ASPM disable message, warn
+	local mt_dmesg
+	mt_dmesg="$(echo "$dmesg_out" | grep -E 'mt7925e.*MT7927' || true)"
+	if [[ -n "$mt_dmesg" ]]; then
+		fail "L1 not disabled (throughput collapse risk, upgrade package)"
+	else
+		na "not MT7927 or no dmesg data"
 	fi
 }
 
 # ---------------------------------------------------------------------------
-# 8. Bluetooth rfkill status
+# 8. Bluetooth USB device presence
+# ---------------------------------------------------------------------------
+check_bt_usb() {
+	# Known MT6639 BT USB vendor:product pairs
+	local bt_ids=("0489:e13a" "0489:e0fa" "0489:e10f" "0489:e116" "13d3:3588" "0e8d:6639")
+	local lsusb_out
+	lsusb_out="$(lsusb 2>/dev/null || true)"
+
+	if [[ -z "$lsusb_out" ]]; then
+		skip "lsusb not available"
+		return
+	fi
+
+	for id in "${bt_ids[@]}"; do
+		if echo "$lsusb_out" | has_match -i "$id"; then
+			ok "$id"
+			return
+		fi
+	done
+
+	na "no MT6639 BT USB device found"
+}
+
+# ---------------------------------------------------------------------------
+# 9. Bluetooth firmware loading from dmesg
+# ---------------------------------------------------------------------------
+check_bt_firmware() {
+	local dmesg_out=""
+	dmesg_out="$(dmesg 2>/dev/null || sudo dmesg 2>/dev/null || true)"
+
+	if [[ -z "$dmesg_out" ]]; then
+		skip "dmesg not accessible"
+		return
+	fi
+
+	local bt_dmesg
+	bt_dmesg="$(echo "$dmesg_out" | grep -iE 'btmtk|btusb|mt6639|BT_RAM_CODE' || true)"
+
+	if [[ -z "$bt_dmesg" ]]; then
+		na "no btmtk/btusb messages in dmesg"
+		return
+	fi
+
+	# Check for firmware load errors
+	if echo "$bt_dmesg" | has_match 'firmware.*error\|failed.*error\|Direct firmware load.*failed'; then
+		local fw_err
+		fw_err="$(echo "$bt_dmesg" | grep -i 'error' | tail -1)"
+		local errno
+		errno="$(echo "$fw_err" | grep -oP 'error -?\K[0-9]+' || true)"
+		case "$errno" in
+		2) fail "firmware not found (ENOENT - check firmware path)" ;;
+		22) fail "firmware invalid (EINVAL - check file integrity)" ;;
+		110) fail "firmware timeout (ETIMEDOUT - USB communication)" ;;
+		*) fail "firmware load error: $fw_err" ;;
+		esac
+		return
+	fi
+
+	# Check for successful HCI registration
+	if echo "$bt_dmesg" | has_match 'hci[0-9]'; then
+		ok "loaded"
+	else
+		na "no HCI device registered"
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# 10. Bluetooth rfkill status
 # ---------------------------------------------------------------------------
 check_bt_rfkill() {
 	if ! command -v rfkill &>/dev/null; then
@@ -227,7 +335,104 @@ detect_interface() {
 }
 
 # ---------------------------------------------------------------------------
-# 10. WiFi scan - report available bands
+# 13. Device readiness (nmcli)
+# ---------------------------------------------------------------------------
+check_device_ready() {
+	local iface="$1"
+
+	if [[ -z "$iface" ]]; then
+		skip "no interface"
+		return
+	fi
+
+	if ! command -v nmcli &>/dev/null; then
+		skip "nmcli not available"
+		return
+	fi
+
+	local state
+	state="$(nmcli -g GENERAL.STATE device show "$iface" 2>/dev/null || true)"
+
+	if [[ -z "$state" ]]; then
+		fail "device not found in NetworkManager"
+		return
+	fi
+
+	case "$state" in
+	*"unavailable"*)
+		fail "unavailable (firmware may not have initialized)"
+		;;
+	*"unmanaged"*)
+		na "unmanaged by NetworkManager"
+		;;
+	*"disconnected"*)
+		ok "ready (disconnected)"
+		;;
+	*"connected"*)
+		ok "connected"
+		;;
+	*)
+		ok "$state"
+		;;
+	esac
+}
+
+# ---------------------------------------------------------------------------
+# 14. Regulatory / 6GHz NO_IR status
+# ---------------------------------------------------------------------------
+check_regulatory() {
+	local iface="$1"
+
+	if [[ -z "$iface" ]]; then
+		skip "no interface"
+		return
+	fi
+
+	local phy
+	phy="$(iw dev "$iface" info 2>/dev/null | grep -oP 'wiphy \K[0-9]+' || true)"
+
+	if [[ -z "$phy" ]]; then
+		skip "cannot determine phy"
+		return
+	fi
+
+	local reg_out
+	reg_out="$(iw phy "phy${phy}" reg get 2>/dev/null || true)"
+
+	if [[ -z "$reg_out" ]]; then
+		skip "cannot read regulatory"
+		return
+	fi
+
+	local country
+	country="$(echo "$reg_out" | grep -oP 'country \K[A-Z]{2}' | head -1 || true)"
+
+	# Count 6GHz channels (5925+) with and without NO_IR
+	local total_6g=0 no_ir_6g=0
+	while IFS= read -r line; do
+		if echo "$line" | has_match -P '\(59[2-9][0-9]|[6-7][0-9]{3}\s'; then
+			total_6g=$((total_6g + 1))
+			if echo "$line" | has_match 'NO-IR'; then
+				no_ir_6g=$((no_ir_6g + 1))
+			fi
+		fi
+	done <<<"$reg_out"
+
+	local cleared_6g=$((total_6g - no_ir_6g))
+
+	if ((total_6g == 0)); then
+		ok "country ${country:-??}, no 6GHz rules"
+	elif ((no_ir_6g == 0)); then
+		ok "country ${country:-??}, 6GHz: all ${total_6g} channels cleared"
+	elif ((cleared_6g > 0)); then
+		ok "country ${country:-??}, 6GHz: ${cleared_6g}/${total_6g} cleared, ${no_ir_6g} NO_IR"
+	else
+		na "country ${country:-??}, 6GHz: all ${total_6g} channels NO_IR (need AP with country IE)"
+	fi
+}
+
+# ---------------------------------------------------------------------------
+# 15. WiFi scan - report available bands
 # ---------------------------------------------------------------------------
 check_scan() {
 	local iface="$1"
@@ -444,7 +649,9 @@ main() {
 	fi
 
 	local pkg_ver kernel_ver pci_id
-	local modules dkms_status mod_source firmware bt_rfkill
+	local modules dkms_status mod_source firmware aspm_status
+	local bt_usb bt_firmware bt_rfkill
+	local device_ready regulatory
 	local scan_result conn_result data_result errors_result
 
 	# Gather results
@@ -455,7 +662,12 @@ main() {
 	dkms_status="$(check_dkms)"
 	mod_source="$(check_module_source)"
 	firmware="$(check_firmware)"
+	aspm_status="$(check_aspm)"
+	bt_usb="$(check_bt_usb)"
+	bt_firmware="$(check_bt_firmware)"
 	bt_rfkill="$(check_bt_rfkill)"
+	device_ready="$(check_device_ready "$iface")"
+	regulatory="$(check_regulatory "$iface")"
 	scan_result="$(check_scan "$iface")"
 	conn_result="$(check_connection "$iface")"
 	data_result="$(check_data_path "$iface")"
@@ -471,8 +683,13 @@ main() {
 - DKMS: ${dkms_status}
 - Module source: ${mod_source}
 - Firmware: ${firmware}
+- ASPM: ${aspm_status}
+- BT USB: ${bt_usb}
+- BT firmware: ${bt_firmware}
 - BT rfkill: ${bt_rfkill}
 - Interface: ${iface:-not found}
+- Device ready: ${device_ready}
+- Regulatory: ${regulatory}
 - Scan: ${scan_result}
 - Connection: ${conn_result}
 - Data path: ${data_result}
