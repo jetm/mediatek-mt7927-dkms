@@ -71,11 +71,11 @@ $(STAMP):
 	done
 	@echo "==> Applying MT6639 Bluetooth patch..."
 	patch -d "$(SRCDIR)/bluetooth" -p3 < "$(TOPDIR)mt6639-bt-6.19.patch"
-	cp "$(TOPDIR)kbuild/bluetooth/Makefile" "$(SRCDIR)/bluetooth/"
+	cp "$(TOPDIR)bluetooth.Makefile" "$(SRCDIR)/bluetooth/Makefile"
 	@echo "==> Installing Kbuild files..."
-	cp "$(TOPDIR)kbuild/Kbuild"        "$(SRCDIR)/mt76/"
-	cp "$(TOPDIR)kbuild/mt7921/Kbuild" "$(SRCDIR)/mt76/mt7921/"
-	cp "$(TOPDIR)kbuild/mt7925/Kbuild" "$(SRCDIR)/mt76/mt7925/"
+	cp "$(TOPDIR)mt76.Kbuild"      "$(SRCDIR)/mt76/Kbuild"
+	cp "$(TOPDIR)mt7921.Kbuild"    "$(SRCDIR)/mt76/mt7921/Kbuild"
+	cp "$(TOPDIR)mt7925.Kbuild"    "$(SRCDIR)/mt76/mt7925/Kbuild"
 	@echo "==> Sources ready in $(SRCDIR)/"
 	@touch "$(STAMP)"
 
