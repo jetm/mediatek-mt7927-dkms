@@ -9,7 +9,6 @@ DESTDIR        ?=
 DKMS_PREFIX    ?= /usr/src/mediatek-mt7927-$(VERSION)
 FIRMWARE_PREFIX?= /usr/lib/firmware/mediatek
 PYTHON         ?= python3
-UNZIP          ?= unzip
 
 TOPDIR := $(dir $(abspath $(lastword $(MAKEFILE_LIST))))
 STAMP  := $(SRCDIR)/.sources-done
@@ -45,11 +44,8 @@ $(STAMP):
 		exit 1; \
 	fi
 	@echo "==> Extracting firmware from driver ZIP..."
-	mkdir -p "$(SRCDIR)/firmware-tmp"
-	$(UNZIP) -o -j "$(DRIVER_ZIP)" mtkwlan.dat -d "$(SRCDIR)/firmware-tmp"
 	mkdir -p "$(SRCDIR)/firmware"
-	$(PYTHON) "$(TOPDIR)extract_firmware.py" "$(SRCDIR)/firmware-tmp/mtkwlan.dat" "$(SRCDIR)/firmware"
-	rm -rf "$(SRCDIR)/firmware-tmp"
+	$(PYTHON) "$(TOPDIR)extract_firmware.py" "$(DRIVER_ZIP)" "$(SRCDIR)/firmware"
 	@echo "==> Extracting mt76 source from kernel v$(MT76_KVER) tarball..."
 	mkdir -p "$(SRCDIR)/mt76"
 	tar -xf "$(KERNEL_TARBALL)" \

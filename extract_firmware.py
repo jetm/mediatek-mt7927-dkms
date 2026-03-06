@@ -3,6 +3,7 @@
 import os
 import struct
 import sys
+import zipfile
 
 # All firmware blobs to extract from mtkwlan.dat
 FIRMWARE_BLOBS = [
@@ -59,10 +60,18 @@ def extract_by_name(data, name, output_path):
     print(f"Extracted {name}: {len(blob)} bytes -> {output_path}")
 
 
-def extract_all(mtkwlan_path, output_dir):
-    """Extract all known firmware blobs to a directory."""
-    with open(mtkwlan_path, "rb") as f:
-        data = f.read()
+def extract_all(input_path, output_dir):
+    """Extract all known firmware blobs to a directory.
+
+    input_path can be a .zip file (reads mtkwlan.dat from it) or a raw
+    mtkwlan.dat file.
+    """
+    if input_path.endswith(".zip"):
+        with zipfile.ZipFile(input_path) as zf:
+            data = zf.read("mtkwlan.dat")
+    else:
+        with open(input_path, "rb") as f:
+            data = f.read()
 
     os.makedirs(output_dir, exist_ok=True)
 
@@ -73,20 +82,9 @@ def extract_all(mtkwlan_path, output_dir):
 
 if __name__ == "__main__":
     if len(sys.argv) != 3:
-        print("usage: extract_firmware.py <mtkwlan.dat> <output-dir-or-file>")
-        print(
-            "  If output is a directory or has no extension: extract all firmware blobs"
-        )
-        print("  If output is a .bin file: extract BT firmware only (legacy mode)")
+        print("usage: extract_firmware.py <driver.zip or mtkwlan.dat> <output-dir>")
+        print("  Extracts all firmware blobs to output-dir.")
+        print("  Input can be the driver ZIP (mtkwlan.dat read from it) or raw mtkwlan.dat.")
         sys.exit(1)
 
-    mtkwlan_path = sys.argv[1]
-    output = sys.argv[2]
-
-    # Legacy mode: if output looks like a specific .bin file, extract BT only
-    if output.endswith(".bin"):
-        with open(mtkwlan_path, "rb") as f:
-            data = f.read()
-        extract_by_name(data, FIRMWARE_BLOBS[0], output)
-    else:
-        extract_all(mtkwlan_path, output)
+    extract_all(sys.argv[1], sys.argv[2])

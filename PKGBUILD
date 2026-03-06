@@ -52,7 +52,7 @@ arch=('x86_64')
 url="https://github.com/jetm/mediatek-mt7927-dkms"
 license=('GPL-2.0-only')
 depends=('dkms')
-makedepends=('python' 'curl' 'unzip')
+makedepends=('python' 'curl')
 provides=('mediatek-mt6639-bt-dkms' 'mediatek-mt7925-wifi-dkms')
 conflicts=('btusb-mt7925-dkms' 'btusb-mt7927-dkms')
 install=mediatek-mt7927-dkms.install
@@ -73,7 +73,7 @@ source=(
   'dkms.conf'
 )
 sha256sums=('4d9f3ff73214f68c0194ef02db9ca4b7ba713253ac1045441d4e9f352bc22e14'
-            'e94c77671abe0d589faa01c1a9451f626b1fc45fb04f765b43fd0e126d01a436'
+            '5410e79d1c9170264769c7149a78bf588ec85245c1556833605fc1c4657ba37a'
             '51d3e2ab7f17b3a8338231c4160490dba0b3bec0836e470ee616f5fed929c8bd')
 
 # Auto-download via ASUS CDN token API
