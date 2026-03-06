@@ -13,9 +13,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-491ddf8f998a6b01fe504389bb7e44f6ea10c068
+770b7f6bb1872a2230a2a62cb7a24f76658fb2ca
 diff --git a/mt76_connac.h b/mt76_connac.h
-index 813d61bffc2c..bfd5b05c2b20 100644
+index 51423c7..7dac72e 100644
 --- a/mt76_connac.h
 +++ b/mt76_connac.h
 @@ -176,3 +176,8 @@ static inline bool is_mt7925(struct mt76_dev *dev)
@@ -28,7 +28,7 @@ index 813d61bffc2c..bfd5b05c2b20 100644
 +{
 +	return mt76_chip(dev) == 0x7927;
  }
-@@ -274,2 +279,3 @@ static inline bool is_mt76_fw_txp(struct mt76_dev *dev)
+@@ -281,2 +286,3 @@ static inline bool is_mt76_fw_txp(struct mt76_dev *dev)
  	case 0x7925:
 +	case 0x7927:
  	case 0x7663:

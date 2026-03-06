@@ -18,9 +18,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-a9e634bfa38bb4e66f6bd86c9c8a6e6b12191383
+5b35a6b614dd9998b6cdc4cd397ea543ec7abedb
 diff --git a/mt7925/mac.c b/mt7925/mac.c
-index 871b67101976..106a26f343a0 100644
+index 871b671..106a26f 100644
 --- a/mt7925/mac.c
 +++ b/mt7925/mac.c
 @@ -341,2 +341,7 @@ mt7925_mac_fill_rx_rate(struct mt792x_dev *dev,
@@ -39,17 +39,17 @@ index 871b67101976..106a26f343a0 100644
 +		break;
  	case IEEE80211_STA_RX_BW_160:
 diff --git a/mt792x_regs.h b/mt792x_regs.h
-index b364d0038653..a2ce6872559e 100644
+index c2ba9c0..a466a42 100644
 --- a/mt792x_regs.h
 +++ b/mt792x_regs.h
-@@ -303,5 +303,5 @@
+@@ -305,5 +305,5 @@
  #define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2	BIT(21)
 -#define MT_WFDMA0_GLO_CFG_ADDR_EXT_EN		BIT(26)
  #define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO	BIT(27)
  #define MT_WFDMA0_GLO_CFG_OMIT_TX_INFO	BIT(28)
 +#define MT_WFDMA0_GLO_CFG_ADDR_EXT_EN		BIT(26)
  #define MT_WFDMA0_GLO_CFG_CLK_GAT_DIS	BIT(30)
-@@ -511,4 +511,4 @@
+@@ -513,4 +513,4 @@
  /* CBInfra CBTOP remap values */
 -#define MT_CBINFRA_REMAP_WF_VAL	0x74037001
 -#define MT_CBINFRA_REMAP_BT_VAL	0x70007000

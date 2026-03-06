@@ -17,12 +17,12 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-9636166a349dbc2f219605cf73d9239388edde7b
+82655e2d8b8c1b3be31f271e03624a19c8991019
 diff --git a/mt792x_dma.c b/mt792x_dma.c
-index 32364f19007d..95082d64fb69 100644
+index 2b22f84..371a9b7 100644
 --- a/mt792x_dma.c
 +++ b/mt792x_dma.c
-@@ -170,3 +170,4 @@ int mt792x_dma_enable(struct mt792x_dev *dev)
+@@ -186,3 +186,4 @@ int mt792x_dma_enable(struct mt792x_dev *dev)
  		mt76_set(dev, MT_WFDMA0_GLO_CFG,
 -			 MT_WFDMA0_GLO_CFG_ADDR_EXT_EN);
 +			 MT_WFDMA0_GLO_CFG_ADDR_EXT_EN |

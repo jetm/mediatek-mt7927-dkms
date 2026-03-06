@@ -15,9 +15,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-63061570b361778b104693492a6a27b5c4d155b2
+c678834b732400db24dd8951a590ad8b9f569bea
 diff --git a/mt7925/mcu.c b/mt7925/mcu.c
-index cf0fdea45cf7..8b5ffb240d52 100644
+index cf0fdea..8b5ffb2 100644
 --- a/mt7925/mcu.c
 +++ b/mt7925/mcu.c
 @@ -1685,2 +1685,3 @@ mt7925_mcu_sta_eht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)

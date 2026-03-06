@@ -15,18 +15,14 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-23a215293c981de4f694089be4000003aefafd2a
+254db9167c77df7c97f2d15258b4d0aed32e8b88
 diff --git a/mt7925/pci_mcu.c b/mt7925/pci_mcu.c
-index 6cceff88c656..206d525eb550 100644
+index 6cceff8..206d525 100644
 --- a/mt7925/pci_mcu.c
 +++ b/mt7925/pci_mcu.c
 @@ -37,9 +37,16 @@ int mt7925e_mcu_init(struct mt792x_dev *dev)
  
 -	err = mt792xe_mcu_fw_pmctrl(dev);
--	if (err)
--		return err;
--
--	err = __mt792xe_mcu_drv_pmctrl(dev);
 -	if (err)
 -		return err;
 +	if (is_mt7927(&dev->mt76)) {
@@ -38,7 +34,10 @@ index 6cceff88c656..206d525eb550 100644
 +		err = mt792xe_mcu_fw_pmctrl(dev);
 +		if (err)
 +			return err;
-+
+ 
+-	err = __mt792xe_mcu_drv_pmctrl(dev);
+-	if (err)
+-		return err;
 +		err = __mt792xe_mcu_drv_pmctrl(dev);
 +		if (err)
 +			return err;

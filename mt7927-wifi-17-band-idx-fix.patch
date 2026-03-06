@@ -35,9 +35,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-ca6410562ed31241779384b7fccbe7c81246a600
+d045d5b4fbc246a62f84fca60e041c904b6e4d2e
 diff --git a/mt7925/main.c b/mt7925/main.c
-index 4a8e46b4931b..63e03fd30d1a 100644
+index f82c56c..fcb9f26 100644
 --- a/mt7925/main.c
 +++ b/mt7925/main.c
 @@ -402,3 +402,20 @@ static int mt7925_mac_link_bss_add(struct mt792x_dev *dev,
@@ -68,16 +68,16 @@ index 4a8e46b4931b..63e03fd30d1a 100644
 +	mt76_wcid_init(&mlink->wcid,
 +		       mconf->mt76.band_idx == 0xff ? 0 : mconf->mt76.band_idx);
  
-@@ -2139,2 +2157,3 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
+@@ -2121,2 +2139,3 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
  	struct mt792x_vif *mvif = (struct mt792x_vif *)vif->drv_priv;
 +	struct mt792x_link_sta *mlink;
  	struct mt792x_dev *dev = mt792x_hw_dev(hw);
-@@ -2142,2 +2161,4 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
+@@ -2124,2 +2143,4 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
  	struct mt792x_bss_conf *mconf;
 +	u8 band_idx;
 +	u8 old_band;
  
-@@ -2157,2 +2178,17 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
+@@ -2139,2 +2160,17 @@ static int mt7925_assign_vif_chanctx(struct ieee80211_hw *hw,
  
 +	old_band = mconf->mt76.band_idx;
 +	if (is_mt7927(&dev->mt76) && ctx->def.chan) {
@@ -96,7 +96,7 @@ index 4a8e46b4931b..63e03fd30d1a 100644
 +
  	mconf->mt76.ctx = ctx;
 diff --git a/mt7925/mcu.c b/mt7925/mcu.c
-index 29e9369eac99..449d36bca447 100644
+index 8b5ffb2..3458aa8 100644
 --- a/mt7925/mcu.c
 +++ b/mt7925/mcu.c
 @@ -303,4 +303,5 @@ mt7925_mcu_roc_iter(void *priv, u8 *mac, struct ieee80211_vif *vif)
@@ -174,14 +174,14 @@ index 29e9369eac99..449d36bca447 100644
 +				    mconf->mt76.band_idx :
 +				    0xff, /* auto */
  		},
-@@ -2529,2 +2560,5 @@ mt7925_mcu_bss_basic_tlv(struct sk_buff *skb,
+@@ -2497,2 +2528,5 @@ mt7925_mcu_bss_basic_tlv(struct sk_buff *skb,
  
 +	if (is_mt7927(phy->dev))
 +		mconf->mt76.band_idx = mt7925_mt7927_hw_band_from_nl(band);
 +
  	if (band == NL80211_BAND_2GHZ)
 diff --git a/mt7925/mt7925.h b/mt7925/mt7925.h
-index 995a4aa836d9..cf344988deb8 100644
+index ba3d2c4..d3c89ea 100644
 --- a/mt7925/mt7925.h
 +++ b/mt7925/mt7925.h
 @@ -65,2 +65,7 @@ enum mt7925_roc_req {

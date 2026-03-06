@@ -15,9 +15,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-31bfb73a5c6ceb4fb953c509f4cb85b136b1f06f
+8d9166261b04e884f36988ef049210f532a145b6
 diff --git a/mt7925/pci_mac.c b/mt7925/pci_mac.c
-index 1626a3684082..cf578a2cdc68 100644
+index 1626a36..cf578a2 100644
 --- a/mt7925/pci_mac.c
 +++ b/mt7925/pci_mac.c
 @@ -74,2 +74,10 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)

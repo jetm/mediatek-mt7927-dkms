@@ -27,9 +27,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-046845a082fd969760ddcb1ed1be3e1f78832a5b
+9967cab486ac453aaa9a9b1fe64e264d4f36c79a
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index 6275e78777b0..e6830404c8fc 100644
+index 6275e78..e683040 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -518,3 +518,10 @@ static int mt7925_pci_probe(struct pci_dev *pdev,

@@ -23,9 +23,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-a0a3840aac9d966199f1d769e6c5fc5c794a012f
+2160c5182b0c729a8bcdfbd30f8a0fc0f5202b8c
 diff --git a/mt7925/init.c b/mt7925/init.c
-index 3ce5d6fcc69d..1e9eadca3988 100644
+index 3ce5d6f..1e9eadc 100644
 --- a/mt7925/init.c
 +++ b/mt7925/init.c
 @@ -117,2 +117,14 @@ static int __mt7925_init_hardware(struct mt792x_dev *dev)
@@ -52,7 +52,7 @@ index 3ce5d6fcc69d..1e9eadca3988 100644
 +	if (!mt76_is_usb(&dev->mt76) && !is_mt7927(&dev->mt76)) {
  		dev->pm.enable_user = true;
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index ca9ccfe9975c..dce9f30b68d7 100644
+index ca9ccfe..dce9f30 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -529,2 +529,12 @@ static int mt7925_pci_probe(struct pci_dev *pdev,

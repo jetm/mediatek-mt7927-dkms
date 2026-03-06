@@ -21,9 +21,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-a9f89a48c9b8f8f2f280e16eb8d4bdf3dd1b834e
+329f513fc2b34bb891a0adfa0363afb77673a2dd
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index 0f76d9197230..6275e78777b0 100644
+index 0f76d91..6275e78 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -420,3 +420,2 @@ static int mt7927_dma_init(struct mt792x_dev *dev)

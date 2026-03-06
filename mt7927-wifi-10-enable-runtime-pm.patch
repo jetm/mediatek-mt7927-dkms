@@ -30,9 +30,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-12acaac9b87fd6aa799feab308759c284d921978
+75b520c91134c525088361fd774099bd9a7b6415
 diff --git a/mt7925/init.c b/mt7925/init.c
-index 1e9eadca3988..84af52a0176d 100644
+index 1e9eadc..84af52a 100644
 --- a/mt7925/init.c
 +++ b/mt7925/init.c
 @@ -244,6 +244,3 @@ int mt7925_register_device(struct mt792x_dev *dev)
@@ -44,7 +44,7 @@ index 1e9eadca3988..84af52a0176d 100644
 +	if (!mt76_is_usb(&dev->mt76)) {
  		dev->pm.enable_user = true;
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index 0dec25b320f8..0f76d9197230 100644
+index 0dec25b..0f76d91 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -418,4 +418,4 @@ static int mt7927_dma_init(struct mt792x_dev *dev)
@@ -55,10 +55,10 @@ index 0dec25b320f8..0f76d9197230 100644
 +	mt76_clear(dev, MT_WFDMA0_GLO_CFG, MT_WFDMA0_GLO_CFG_CSR_LBK_RX_Q_SEL_EN);
  	mt76_set(dev, MT_WFDMA0_GLO_CFG_EXT1, BIT(28));
 diff --git a/mt792x_dma.c b/mt792x_dma.c
-index 3177c6cc6eb5..32364f19007d 100644
+index 4e0f8f9..2b22f84 100644
 --- a/mt792x_dma.c
 +++ b/mt792x_dma.c
-@@ -168,2 +168,9 @@ int mt792x_dma_enable(struct mt792x_dev *dev)
+@@ -184,2 +184,9 @@ int mt792x_dma_enable(struct mt792x_dev *dev)
  
 +	if (is_mt7927(&dev->mt76)) {
 +		mt76_set(dev, MT_WFDMA0_GLO_CFG,
@@ -69,10 +69,10 @@ index 3177c6cc6eb5..32364f19007d 100644
 +
  	if (is_mt7925(&dev->mt76)) {
 diff --git a/mt792x_regs.h b/mt792x_regs.h
-index 5497cfaab8d7..b364d0038653 100644
+index 857ca7c..c2ba9c0 100644
 --- a/mt792x_regs.h
 +++ b/mt792x_regs.h
-@@ -301,3 +301,5 @@
+@@ -303,3 +303,5 @@
  #define MT_WFDMA0_GLO_CFG_CSR_DISP_BASE_PTR_CHAIN_EN BIT(15)
 +#define MT_WFDMA0_GLO_CFG_CSR_LBK_RX_Q_SEL_EN	BIT(20)
  #define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2	BIT(21)

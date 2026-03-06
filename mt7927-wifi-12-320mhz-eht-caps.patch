@@ -25,9 +25,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-31597ed5c4b8487482473faf36f33325e227dd68
+8ca13ea40c9ee1f2cb5389e99e65148591917194
 diff --git a/mt7925/main.c b/mt7925/main.c
-index 2d358a96640c..4e1265886f20 100644
+index 2d358a9..4e12658 100644
 --- a/mt7925/main.c
 +++ b/mt7925/main.c
 @@ -185,2 +185,6 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,

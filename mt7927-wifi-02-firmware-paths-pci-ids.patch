@@ -17,9 +17,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-098df91c86fdcd3e4895c87311d34f4457315eef
+4faea167c76294bdfb6ba2d7bb62c144c9c7a3ca
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index c4161754c01d..54eac5c6e509 100644
+index c416175..54eac5c 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -18,2 +18,6 @@ static const struct pci_device_id mt7925_pci_device_table[] = {
@@ -35,23 +35,23 @@ index c4161754c01d..54eac5c6e509 100644
 +MODULE_FIRMWARE(MT7927_ROM_PATCH);
  MODULE_AUTHOR("Deren Wu <deren.wu@mediatek.com>");
 diff --git a/mt792x.h b/mt792x.h
-index 8388638ed550..38790ef83e51 100644
+index 1f381ab..bb308f1 100644
 --- a/mt792x.h
 +++ b/mt792x.h
-@@ -47,2 +47,3 @@
+@@ -48,2 +48,3 @@
  #define MT7925_FIRMWARE_WM	"mediatek/mt7925/WIFI_RAM_CODE_MT7925_1_1.bin"
 +#define MT7927_FIRMWARE_WM	"mediatek/mt7927/WIFI_RAM_CODE_MT6639_2_1.bin"
  
-@@ -52,2 +53,3 @@
+@@ -54,2 +55,3 @@
  #define MT7925_ROM_PATCH	"mediatek/mt7925/WIFI_MT7925_PATCH_MCU_1_1_hdr.bin"
 +#define MT7927_ROM_PATCH	"mediatek/mt7927/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin"
  
-@@ -456,2 +458,4 @@ static inline char *mt792x_ram_name(struct mt792x_dev *dev)
+@@ -460,2 +462,4 @@ static inline char *mt792x_ram_name(struct mt792x_dev *dev)
  		return MT7925_FIRMWARE_WM;
 +	case 0x7927:
 +		return MT7927_FIRMWARE_WM;
  	default:
-@@ -470,2 +474,4 @@ static inline char *mt792x_patch_name(struct mt792x_dev *dev)
+@@ -476,2 +480,4 @@ static inline char *mt792x_patch_name(struct mt792x_dev *dev)
  		return MT7925_ROM_PATCH;
 +	case 0x7927:
 +		return MT7927_ROM_PATCH;

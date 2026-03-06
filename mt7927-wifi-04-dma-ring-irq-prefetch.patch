@@ -25,9 +25,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-892926dbfc62adc50a4a6720bc3439fa80132e26
+1f42df4654a4c9ab758392b299e54a750b0c578e
 diff --git a/mt7925/mt7925.h b/mt7925/mt7925.h
-index 6b9bf1b89032..ba3d2c4de4ce 100644
+index 6b9bf1b..ba3d2c4 100644
 --- a/mt7925/mt7925.h
 +++ b/mt7925/mt7925.h
 @@ -128,2 +128,9 @@ enum mt7925_rxq_id {
@@ -41,7 +41,7 @@ index 6b9bf1b89032..ba3d2c4de4ce 100644
 +
  enum {
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index c16ec05c5601..ca9ccfe9975c 100644
+index c16ec05..ca9ccfe 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -326,2 +326,123 @@ static void mt7927_cbtop_remap(struct mt792x_dev *dev)
@@ -185,7 +185,7 @@ index c16ec05c5601..ca9ccfe9975c 100644
 +		ret = mt7925_dma_init(dev);
  	if (ret)
 diff --git a/mt792x_dma.c b/mt792x_dma.c
-index 1ddec7788b66..3177c6cc6eb5 100644
+index 002aece..4e0f8f9 100644
 --- a/mt792x_dma.c
 +++ b/mt792x_dma.c
 @@ -92,3 +92,19 @@ static void mt792x_dma_prefetch(struct mt792x_dev *dev)
@@ -210,10 +210,10 @@ index 1ddec7788b66..3177c6cc6eb5 100644
 +	} else if (is_mt7925(&dev->mt76)) {
  		/* rx ring */
 diff --git a/mt792x_regs.h b/mt792x_regs.h
-index 0f75dca0a96c..5497cfaab8d7 100644
+index 8c0ba3a..857ca7c 100644
 --- a/mt792x_regs.h
 +++ b/mt792x_regs.h
-@@ -365,2 +365,12 @@
+@@ -367,2 +367,12 @@
  
 +/* MT7927 packed prefetch registers */
 +#define MT_WFDMA_PREFETCH_CTRL		MT_WFDMA_EXT_CSR(0x30)

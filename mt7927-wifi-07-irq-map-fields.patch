@@ -14,9 +14,9 @@ Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
-30c93283a13fd560cab93c07fc191f0388c0b017
+ddbc2d99bb54fdb14e7f0a32e16799a76c6d7190
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index dce9f30b68d7..0dec25b320f8 100644
+index dce9f30..0dec25b 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
 @@ -768,3 +768,6 @@ static int _mt7925_pci_resume(struct device *device, bool restore)
@@ -28,7 +28,7 @@ index dce9f30b68d7..0dec25b320f8 100644
 +			       MT_INT_MCU_CMD);
  	mt76_set(dev, MT_MCU2HOST_SW_INT_ENA, MT_MCU_CMD_WAKE_RX_PCIE);
 diff --git a/mt7925/pci_mac.c b/mt7925/pci_mac.c
-index 3072850c2752..1626a3684082 100644
+index 3072850..1626a36 100644
 --- a/mt7925/pci_mac.c
 +++ b/mt7925/pci_mac.c
 @@ -120,3 +120,6 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
