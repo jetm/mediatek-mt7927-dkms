@@ -25,6 +25,9 @@ Reported-by: cmspam (GitHub)
 Tested-by: cmspam (GitHub)
 Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
+Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
+Tested-by: George Salukvadze <giosal90@gmail.com>
+Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
 046845a082fd969760ddcb1ed1be3e1f78832a5b
 diff --git a/mt7925/pci.c b/mt7925/pci.c

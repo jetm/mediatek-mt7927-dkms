@@ -17,6 +17,9 @@ mt792x_dma_enable() via MT_UWFDMA0_GLO_CFG_EXT1.
 Reported-by: 张旭涵 <Loong.0x00@gmail.com>
 Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
+Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
+Tested-by: George Salukvadze <giosal90@gmail.com>
+Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
 a9f89a48c9b8f8f2f280e16eb8d4bdf3dd1b834e
 diff --git a/mt7925/pci.c b/mt7925/pci.c

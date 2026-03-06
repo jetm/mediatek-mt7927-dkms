@@ -11,6 +11,9 @@ pattern for BW20, BW80, and BW160.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
+Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
+Tested-by: George Salukvadze <giosal90@gmail.com>
+Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
 63061570b361778b104693492a6a27b5c4d155b2
 diff --git a/mt7925/mcu.c b/mt7925/mcu.c

@@ -31,6 +31,9 @@ Signed-off-by: 张旭涵 <Loong.0x00@gmail.com>
 Assisted-by: Claude Code <noreply@anthropic.com> [claude-opus-4-6]
 Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
+Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
+Tested-by: George Salukvadze <giosal90@gmail.com>
+Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
 ca6410562ed31241779384b7fccbe7c81246a600
 diff --git a/mt7925/main.c b/mt7925/main.c

@@ -12,6 +12,9 @@ Fixes: 69acd6d910b0 ("wifi: mt76: mt7925: add MLO support")
 Assisted-by: Claude Code <noreply@anthropic.com> [claude-opus-4-6]
 Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
+Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
+Tested-by: George Salukvadze <giosal90@gmail.com>
+Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
 a5a7b551ff670f08ffef4a9b4937b3c8158d2e8a
 diff --git a/mt7925/main.c b/mt7925/main.c

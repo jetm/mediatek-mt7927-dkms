@@ -11,6 +11,9 @@ with a warning so users know to reload the module.
 
 Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
+Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
+Tested-by: George Salukvadze <giosal90@gmail.com>
+Tested-by: Evgeny Kapusta <3193631@gmail.com>
 
 31bfb73a5c6ceb4fb953c509f4cb85b136b1f06f
 diff --git a/mt7925/pci_mac.c b/mt7925/pci_mac.c
