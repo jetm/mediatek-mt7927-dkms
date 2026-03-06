@@ -52,7 +52,7 @@ arch=('x86_64')
 url="https://github.com/jetm/mediatek-mt7927-dkms"
 license=('GPL-2.0-only')
 depends=('dkms')
-makedepends=('python' 'curl')
+makedepends=('python' 'curl' 'unzip')
 provides=('mediatek-mt6639-bt-dkms' 'mediatek-mt7925-wifi-dkms')
 conflicts=('btusb-mt7925-dkms' 'btusb-mt7927-dkms')
 install=mediatek-mt7927-dkms.install
@@ -78,37 +78,9 @@ sha256sums=('4d9f3ff73214f68c0194ef02db9ca4b7ba713253ac1045441d4e9f352bc22e14'
             'b6449dce574cd411eb5f17a740b68d5c62a164adae5e912a4bf2bf50ab4094e7'
             'bd29eefcec618ec17d6ff3b6521d8292a6e092c3cbbdd1fca93b63e4c86a7fec')
 
-# Auto-download via ASUS CDN token API.
-# Based on code by Eadinator: https://github.com/openwrt/mt76/issues/927#issuecomment-3936022734
+# Auto-download via ASUS CDN token API
 _download_driver_zip() {
-  local _token_url="https://cdnta.asus.com/api/v1/TokenHQ?filePath=https:%2F%2Fdlcdnta.asus.com%2Fpub%2FASUS%2Fmb%2F08WIRELESS%2F${_driver_filename}%3Fmodel%3DROG%2520CROSSHAIR%2520X870E%2520HERO&systemCode=rog"
-
-  echo "Fetching download token from ASUS CDN..."
-  local _json
-  _json="$(curl -sf "${_token_url}" -X POST -H 'Origin: https://rog.asus.com')"
-
-  if [[ -z "${_json}" ]]; then
-    echo >&2 "Failed to retrieve download token from ASUS CDN"
-    return 1
-  fi
-
-  local _expires _signature _key_pair_id
-  _expires=${_json#*\"expires\":\"}
-  _expires=${_expires%%\"*}
-
-  _signature=${_json#*\"signature\":\"}
-  _signature=${_signature%%\"*}
-
-  _key_pair_id=${_json#*\"keyPairId\":\"}
-  _key_pair_id=${_key_pair_id%%\"*}
-
-  local _download_url="https://dlcdnta.asus.com/pub/ASUS/mb/08WIRELESS/${_driver_filename}?model=ROG%20CROSSHAIR%20X870E%20HERO&Signature=${_signature}&Expires=${_expires}&Key-Pair-Id=${_key_pair_id}"
-
-  echo "Downloading ${_driver_filename}..."
-  if ! curl -L -f -o "${SRCDEST:-.}/${_driver_filename}" "${_download_url}"; then
-    echo >&2 "Failed to download driver ZIP"
-    return 1
-  fi
+  DRIVER_FILENAME="${_driver_filename}" "${startdir}/download-driver.sh" "${SRCDEST:-.}"
 }
 
 prepare() {
@@ -150,108 +122,15 @@ prepare() {
 build() {
   local _zips=("${SRCDEST:-.}"/DRV_WiFi_MTK_MT7925_MT7927*.zip)
 
-  # Extract BT + WiFi firmware from ASUS driver ZIP
-  bsdtar -xf "${_zips[0]}" -C "${srcdir}" mtkwlan.dat
-  python "${srcdir}/extract_firmware.py" "${srcdir}/mtkwlan.dat" "${srcdir}/firmware"
-
-  # Extract mt76 and bluetooth source from kernel tarball
-  echo "Extracting mt76 source from kernel v${_mt76_kver} tarball..."
-  mkdir -p "${srcdir}/mt76"
-  tar -xf "${srcdir}/linux-${_mt76_kver}.tar.xz" \
-    --strip-components=6 \
-    -C "${srcdir}/mt76" \
-    "linux-${_mt76_kver}/drivers/net/wireless/mediatek/mt76"
-
-  echo "Extracting bluetooth source..."
-  mkdir -p "${srcdir}/bluetooth"
-  tar -xf "${srcdir}/linux-${_mt76_kver}.tar.xz" \
-    --strip-components=3 \
-    -C "${srcdir}/bluetooth" \
-    "linux-${_mt76_kver}/drivers/bluetooth"
-
-  cd "${srcdir}/mt76"
-
-  echo "Applying mt7902-wifi-6.19.patch..."
-  patch -p1 < "${startdir}/mt7902-wifi-6.19.patch"
-
-  echo "Applying MT7927 WiFi patches..."
-  for _p in "${startdir}"/mt7927-wifi-*.patch; do
-    echo "  $(basename "$_p")"
-    patch -p1 < "$_p"
-  done
-
-  # Create Kbuild files for out-of-tree mt76 build
-  cat > "${srcdir}/mt76/Kbuild" <<'EOF'
-obj-m += mt76.o
-obj-m += mt76-connac-lib.o
-obj-m += mt792x-lib.o
-obj-m += mt7921/
-obj-m += mt7925/
-
-mt76-y := \
-	mmio.o util.o trace.o dma.o mac80211.o debugfs.o eeprom.o \
-	tx.o agg-rx.o mcu.o wed.o scan.o channel.o pci.o
-
-mt76-connac-lib-y := mt76_connac_mcu.o mt76_connac_mac.o mt76_connac3_mac.o
-
-mt792x-lib-y := mt792x_core.o mt792x_mac.o mt792x_trace.o \
-		mt792x_debugfs.o mt792x_dma.o mt792x_acpi_sar.o
-
-CFLAGS_trace.o := -I$(src)
-CFLAGS_mt792x_trace.o := -I$(src)
-EOF
-
-  cat > "${srcdir}/mt76/mt7921/Kbuild" <<'EOF'
-obj-m += mt7921-common.o
-obj-m += mt7921e.o
-
-mt7921-common-y := mac.o mcu.o main.o init.o debugfs.o
-mt7921e-y := pci.o pci_mac.o pci_mcu.o
-EOF
-
-  cat > "${srcdir}/mt76/mt7925/Kbuild" <<'EOF'
-obj-m += mt7925-common.o
-obj-m += mt7925e.o
-
-mt7925-common-y := mac.o mcu.o regd.o main.o init.o debugfs.o
-mt7925e-y := pci.o pci_mac.o pci_mcu.o
-EOF
-
-  echo "mt76 source prepared with MT7902 + MT7927 patches"
+  make -C "${startdir}" sources \
+    KERNEL_TARBALL="${srcdir}/linux-${_mt76_kver}.tar.xz" \
+    DRIVER_ZIP="${_zips[0]}" \
+    SRCDIR="${srcdir}/_build"
 }
 
 package() {
-  local _dkmsdir="${pkgdir}/usr/src/mediatek-mt7927-${pkgver}"
-
-  # Install DKMS config and scripts
-  install -Dm644 "${srcdir}/dkms.conf" "${_dkmsdir}/dkms.conf"
-  install -Dm755 "${srcdir}/dkms-patchmodule.sh" "${_dkmsdir}/dkms-patchmodule.sh"
-  install -Dm644 "${startdir}/mt6639-bt-6.19.patch" "${_dkmsdir}/patches/bt/mt6639-bt-6.19.patch"
-  install -dm755 "${_dkmsdir}/patches/wifi"
-  install -m644 "${startdir}"/mt7927-wifi-*.patch "${_dkmsdir}/patches/wifi/"
-  install -Dm755 "${srcdir}/extract_firmware.py" "${_dkmsdir}/extract_firmware.py"
-
-  # Install pre-extracted bluetooth source for DKMS btusb builds
-  install -dm755 "${_dkmsdir}/drivers/bluetooth"
-  install -m644 "${srcdir}/bluetooth"/{btusb.c,btmtk.c,btmtk.h,btbcm.c,btbcm.h,btintel.h,btrtl.h} \
-    "${_dkmsdir}/drivers/bluetooth/"
-
-  # Install patched mt76 WiFi source tree
-  install -dm755 "${_dkmsdir}/mt76/mt7921" "${_dkmsdir}/mt76/mt7925"
-  install -m644 "${srcdir}/mt76"/*.{c,h} "${_dkmsdir}/mt76/"
-  install -m644 "${srcdir}/mt76/Kbuild" "${_dkmsdir}/mt76/"
-  install -m644 "${srcdir}/mt76/mt7921"/*.{c,h} "${_dkmsdir}/mt76/mt7921/"
-  install -m644 "${srcdir}/mt76/mt7921/Kbuild" "${_dkmsdir}/mt76/mt7921/"
-  install -m644 "${srcdir}/mt76/mt7925"/*.{c,h} "${_dkmsdir}/mt76/mt7925/"
-  install -m644 "${srcdir}/mt76/mt7925/Kbuild" "${_dkmsdir}/mt76/mt7925/"
-
-  # Install BT firmware
-  install -Dm644 "${srcdir}/firmware/BT_RAM_CODE_MT6639_2_1_hdr.bin" \
-    "${pkgdir}/usr/lib/firmware/mediatek/mt6639/BT_RAM_CODE_MT6639_2_1_hdr.bin"
-
-  # Install WiFi firmware
-  install -Dm644 "${srcdir}/firmware/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin" \
-    "${pkgdir}/usr/lib/firmware/mediatek/mt7927/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin"
-  install -Dm644 "${srcdir}/firmware/WIFI_RAM_CODE_MT6639_2_1.bin" \
-    "${pkgdir}/usr/lib/firmware/mediatek/mt7927/WIFI_RAM_CODE_MT6639_2_1.bin"
+  make -C "${startdir}" install \
+    SRCDIR="${srcdir}/_build" \
+    DESTDIR="${pkgdir}" \
+    VERSION="${pkgver}"
 }
