@@ -74,7 +74,7 @@ source=(
 )
 sha256sums=('4d9f3ff73214f68c0194ef02db9ca4b7ba713253ac1045441d4e9f352bc22e14'
             '5410e79d1c9170264769c7149a78bf588ec85245c1556833605fc1c4657ba37a'
-            '51d3e2ab7f17b3a8338231c4160490dba0b3bec0836e470ee616f5fed929c8bd')
+            'f2d4cab081726983011ce70ad55f9af97101c82804d29f04700f1d7dce28bd0d')
 
 # Auto-download via ASUS CDN token API
 _download_driver_zip() {
