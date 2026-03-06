@@ -1,0 +1,95 @@
+mt7925: add MT7927 MLO and 320MHz BSS_RLM support
+
+Enable Multi-Link Operation (MLO) for MT7927/MT6639 and fix 320MHz
+data path. MT6639 firmware does not report MLO capability in NIC_CAP,
+so force MLO_EN flag. Fix bss_rlm_tlv() missing NL80211_CHAN_WIDTH_320
+case which caused firmware to configure RX radio for 20MHz while
+associated to a 320MHz BSS — resulting in complete data path failure.
+Also fix 5GHz/6GHz link selection conflict (shared RF1 prevents STR)
+and MLO RX WCID lookup for BSS self-STA.
+
+Tested on ASUS RT-BE92U (Broadcom BCA):
+  - 6GHz 320MHz: 841 Mbps (iperf3 -t30 -P8), PHY 4803 Mbps EHT-MCS11
+  - MLO 5GHz+2.4GHz STR: 763 Mbps stable
+  - MLO 3-link (6G+5G+2.4G): 741 Mbps, PHY 4803 Mbps 320MHz
+
+Signed-off-by: Javier Martinez Canillas <jetm@redhat.com>
+Tested-by: 张旭涵 <Loong.0x00@gmail.com>
+---
+ mac80211.c      | 19 ++++++++++++++-----
+ mt7925/init.c   |  6 ++++++
+ mt7925/mcu.c    |  4 ++++
+ mt792x_mac.c    |  2 +-
+ 4 files changed, 25 insertions(+), 6 deletions(-)
+
+--- a/mt7925/init.c
++++ b/mt7925/init.c
+@@ -167,6 +167,12 @@
+ 	mt7925_set_stream_he_eht_caps(&dev->phy);
+ 	mt792x_config_mac_addr_list(dev);
+ 
++	/* MT7927: firmware does not report MLO capability in NIC_CAP.
++	 * Force MLO_EN so mt7925_init_mlo_caps() sets WIPHY_FLAG_SUPPORTS_MLO.
++	 */
++	if (is_mt7927(&dev->mt76))
++		dev->phy.chip_cap |= MT792x_CHIP_CAP_MLO_EN;
++
+ 	ret = mt7925_init_mlo_caps(&dev->phy);
+ 	if (ret) {
+ 		dev_err(dev->mt76.dev, "MLO init failed\n");
+--- a/mt792x_mac.c
++++ b/mt792x_mac.c
+@@ -147,7 +147,7 @@
+ 		return wcid;
+ 
+ 	if (!wcid->sta)
+-		return NULL;
++		return wcid->def_wcid;
+ 
+ 	link = container_of(wcid, struct mt792x_link_sta, wcid);
+ 	sta = link->sta;
+--- a/mt7925/mcu.c
++++ b/mt7925/mcu.c
+@@ -2363,6 +2363,10 @@
+ 	case NL80211_CHAN_WIDTH_160:
+ 		req->bw = CMD_CBW_160MHZ;
+ 		break;
++	case NL80211_CHAN_WIDTH_320:
++		req->bw = CMD_CBW_320MHZ;
++		req->center_chan2 = ieee80211_frequency_to_channel(freq2);
++		break;
+ 	case NL80211_CHAN_WIDTH_5:
+ 		req->bw = CMD_CBW_5MHZ;
+ 		break;
+--- a/mac80211.c
++++ b/mac80211.c
+@@ -2109,13 +2109,22 @@
+ 
+ 		sel_links = BIT(data[i].link_id);
+ 		for (j = 0; j < n_data; j++) {
+-			if (data[i].band != data[j].band) {
+-				sel_links |= BIT(data[j].link_id);
+-				if (hweight16(sel_links) == max_active_links)
+-					break;
+-			}
++			if (data[i].band == data[j].band)
++				continue;
++			/* MT6639/MT7927: 5GHz and 6GHz share the same radio
++			 * (band_idx=1). Skip 5GHz<->6GHz since STR is
++			 * impossible on the same radio.
++			 */
++			if ((data[i].band == NL80211_BAND_5GHZ &&
++			     data[j].band == NL80211_BAND_6GHZ) ||
++			    (data[i].band == NL80211_BAND_6GHZ &&
++			     data[j].band == NL80211_BAND_5GHZ))
++				continue;
++			sel_links |= BIT(data[j].link_id);
++			if (hweight16(sel_links) == max_active_links)
++				break;
+ 		}
+-		break;
++		if (hweight16(sel_links) > 1)
++			break;
+ 	}
+ 
+ 	return sel_links;
