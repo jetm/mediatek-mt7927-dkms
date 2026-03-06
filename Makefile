@@ -110,6 +110,12 @@ install: sources
 		"$(DESTDIR)$(FIRMWARE_PREFIX)/mt7927/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin"
 	install -Dm644 "$(SRCDIR)/firmware/WIFI_RAM_CODE_MT6639_2_1.bin" \
 		"$(DESTDIR)$(FIRMWARE_PREFIX)/mt7927/WIFI_RAM_CODE_MT6639_2_1.bin"
+	# Patch files (reference copies)
+	install -dm755 "$(DESTDIR)$(DKMS_PREFIX)/patches/bt"
+	install -dm755 "$(DESTDIR)$(DKMS_PREFIX)/patches/wifi"
+	install -m644 "$(TOPDIR)mt6639-bt-6.19.patch" "$(DESTDIR)$(DKMS_PREFIX)/patches/bt/"
+	install -m644 "$(TOPDIR)mt7902-wifi-6.19.patch" "$(DESTDIR)$(DKMS_PREFIX)/patches/wifi/"
+	install -m644 $(TOPDIR)mt7927-wifi-*.patch "$(DESTDIR)$(DKMS_PREFIX)/patches/wifi/"
 	@echo "==> Install complete."
 
 # ── clean ───────────────────────────────────────────────────────────
