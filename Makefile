@@ -69,6 +69,9 @@ $(STAMP):
 		echo "  $$(basename "$$p")"; \
 		patch -d "$(SRCDIR)/mt76" -p1 < "$$p"; \
 	done
+	@echo "==> Applying MT6639 Bluetooth patch..."
+	patch -d "$(SRCDIR)/bluetooth" -p3 < "$(TOPDIR)mt6639-bt-6.19.patch"
+	cp "$(TOPDIR)kbuild/bluetooth/Makefile" "$(SRCDIR)/bluetooth/"
 	@echo "==> Installing Kbuild files..."
 	cp "$(TOPDIR)kbuild/Kbuild"        "$(SRCDIR)/mt76/"
 	cp "$(TOPDIR)kbuild/mt7921/Kbuild" "$(SRCDIR)/mt76/mt7921/"
@@ -80,11 +83,6 @@ $(STAMP):
 install: sources
 	@echo "==> Installing DKMS source tree to $(DESTDIR)$(DKMS_PREFIX)..."
 	install -Dm644 "$(TOPDIR)dkms.conf"          "$(DESTDIR)$(DKMS_PREFIX)/dkms.conf"
-	install -Dm755 "$(TOPDIR)dkms-patchmodule.sh" "$(DESTDIR)$(DKMS_PREFIX)/dkms-patchmodule.sh"
-	install -Dm644 "$(TOPDIR)mt6639-bt-6.19.patch" \
-		"$(DESTDIR)$(DKMS_PREFIX)/patches/bt/mt6639-bt-6.19.patch"
-	install -dm755 "$(DESTDIR)$(DKMS_PREFIX)/patches/wifi"
-	install -m644 $(TOPDIR)mt7927-wifi-*.patch "$(DESTDIR)$(DKMS_PREFIX)/patches/wifi/"
 	install -Dm755 "$(TOPDIR)extract_firmware.py" "$(DESTDIR)$(DKMS_PREFIX)/extract_firmware.py"
 	# Bluetooth source for DKMS btusb builds
 	install -dm755 "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth"
@@ -95,6 +93,7 @@ install: sources
 	install -m644 $(SRCDIR)/bluetooth/btbcm.h  "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth/"
 	install -m644 $(SRCDIR)/bluetooth/btintel.h "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth/"
 	install -m644 $(SRCDIR)/bluetooth/btrtl.h  "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth/"
+	install -m644 $(SRCDIR)/bluetooth/Makefile "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth/"
 	# Patched mt76 WiFi source tree
 	install -dm755 "$(DESTDIR)$(DKMS_PREFIX)/mt76/mt7921" \
 		"$(DESTDIR)$(DKMS_PREFIX)/mt76/mt7925"

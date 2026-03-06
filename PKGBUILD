@@ -71,12 +71,10 @@ source=(
   "https://cdn.kernel.org/pub/linux/kernel/v${_mt76_kver%%.*}.x/linux-${_mt76_kver}.tar.xz"
   'extract_firmware.py'
   'dkms.conf'
-  'dkms-patchmodule.sh'
 )
 sha256sums=('4d9f3ff73214f68c0194ef02db9ca4b7ba713253ac1045441d4e9f352bc22e14'
             'e94c77671abe0d589faa01c1a9451f626b1fc45fb04f765b43fd0e126d01a436'
-            'b6449dce574cd411eb5f17a740b68d5c62a164adae5e912a4bf2bf50ab4094e7'
-            'bd29eefcec618ec17d6ff3b6521d8292a6e092c3cbbdd1fca93b63e4c86a7fec')
+            '51d3e2ab7f17b3a8338231c4160490dba0b3bec0836e470ee616f5fed929c8bd')
 
 # Auto-download via ASUS CDN token API
 _download_driver_zip() {
