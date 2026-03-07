@@ -68,6 +68,14 @@ $(STAMP):
 	@echo "==> Applying MT6639 Bluetooth patch..."
 	patch -d "$(SRCDIR)/bluetooth" -p3 < "$(TOPDIR)mt6639-bt-6.19.patch"
 	cp "$(TOPDIR)bluetooth.Makefile" "$(SRCDIR)/bluetooth/Makefile"
+	@echo "==> Extracting compat header: airoha_offload.h..."
+	mkdir -p "$(SRCDIR)/mt76/compat/include/linux/soc/airoha"
+	tar -xf "$(KERNEL_TARBALL)" \
+		--strip-components=2 \
+		-C "$(SRCDIR)/mt76/compat/include" \
+		"linux-$(MT76_KVER)/include/linux/soc/airoha/airoha_offload.h" \
+		2>/dev/null || \
+		echo "  (airoha_offload.h not in kernel $(MT76_KVER) tarball, skipping)"
 	@echo "==> Installing Kbuild files..."
 	cp "$(TOPDIR)mt76.Kbuild"      "$(SRCDIR)/mt76/Kbuild"
 	cp "$(TOPDIR)mt7921.Kbuild"    "$(SRCDIR)/mt76/mt7921/Kbuild"
@@ -116,6 +124,14 @@ install: sources
 	install -m644 "$(TOPDIR)mt6639-bt-6.19.patch" "$(DESTDIR)$(DKMS_PREFIX)/patches/bt/"
 	install -m644 "$(TOPDIR)mt7902-wifi-6.19.patch" "$(DESTDIR)$(DKMS_PREFIX)/patches/wifi/"
 	install -m644 $(TOPDIR)mt7927-wifi-*.patch "$(DESTDIR)$(DKMS_PREFIX)/patches/wifi/"
+	# Compat layer: apply-compat.sh + bundled headers
+	install -Dm755 "$(TOPDIR)apply-compat.sh" "$(DESTDIR)$(DKMS_PREFIX)/apply-compat.sh"
+	@if [ -d "$(SRCDIR)/mt76/compat" ]; then \
+		find "$(SRCDIR)/mt76/compat" -type f | while read f; do \
+			rel="$${f#$(SRCDIR)/mt76/}"; \
+			install -Dm644 "$$f" "$(DESTDIR)$(DKMS_PREFIX)/mt76/$$rel"; \
+		done; \
+	fi
 	@echo "==> Install complete."
 
 # ── clean ───────────────────────────────────────────────────────────
