@@ -30,7 +30,7 @@ device ID and firmware patches not yet in mainline. Distributed as an
 |--------|-----------|-------------|
 | ASUS ROG Crosshair X870E Hero | 0489:e13a | 14c3:7927 |
 | ASUS ProArt X870E-Creator WiFi | 13d3:3588 | 14c3:6639 |
-| ASUS ROG Strix X870-I | - | 14c3:7927 |
+| ASUS ROG Strix X870-I | 0489:e13a | 14c3:7927 |
 | ASUS X870E-E | 13d3:3588 | 14c3:7927 |
 | Gigabyte X870E Aorus Master X3D | 0489:e10f | 14c3:7927 |
 | Gigabyte Z790 AORUS MASTER X | 0489:e10f | 14c3:7927 |
