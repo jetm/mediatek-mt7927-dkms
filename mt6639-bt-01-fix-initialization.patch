@@ -1,0 +1,23 @@
+--- a/drivers/bluetooth/btmtk.c
++++ b/drivers/bluetooth/btmtk.c
+@@ -1004,7 +1004,7 @@
+ 	if (!btmtk_data->isopkt_intf)
+ 		return -ENODEV;
+ 
+-	err = usb_set_interface(btmtk_data->udev, MTK_ISO_IFNUM, 1);
++	err = usb_set_interface(btmtk_data->udev, MTK_ISO_IFNUM, (btmtk_data->dev_id == 0x6639) ? 0 : 1);
+ 	if (err < 0) {
+ 		bt_dev_err(hdev, "setting interface failed (%d)", -err);
+ 		return err;
+@@ -1325,6 +1325,11 @@
+ 		fw_flavor = (fw_flavor & 0x00000080) >> 7;
+ 	}
+ 
++	if (!dev_id) {
++		bt_dev_info(hdev, "MT6639: raw CHIPID=0x0000, forcing chip=0x6639");
++		dev_id = 0x6639;
++	}
++
+ 	btmtk_data->dev_id = dev_id;
+ 
+ 	err = btmtk_register_coredump(hdev, btmtk_data->drv_name, fw_version);
