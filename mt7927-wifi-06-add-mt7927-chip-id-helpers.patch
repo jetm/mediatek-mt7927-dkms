@@ -7,15 +7,20 @@ MT7927-specific handling.
 
 Also add 0x7927 to is_mt76_fw_txp() to match MT7925's TXP format.
 
-Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
 Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
+Tested-by: Samu Toljamo <samu.toljamo@gmail.com>
+Tested-by: Ariel Rosenfeld <ariel.rosenfeld.750@gmail.com>
+Tested-by: Chapuis Dario <chapuisdario4@gmail.com>
+Tested-by: Thibaut François <tibo@humeurlibre.fr>
+Tested-by: 张旭涵 <Loong.0x00@gmail.com>
+Signed-off-by: Javier Tia <floss@jetm.me>
 
-770b7f6bb1872a2230a2a62cb7a24f76658fb2ca
+7d27ed4183380763f0de0da9912d643eb822fafe
 diff --git a/mt76_connac.h b/mt76_connac.h
-index 51423c7..7dac72e 100644
+index f76d978..c575106 100644
 --- a/mt76_connac.h
 +++ b/mt76_connac.h
 @@ -176,3 +176,8 @@ static inline bool is_mt7925(struct mt76_dev *dev)
@@ -28,7 +33,7 @@ index 51423c7..7dac72e 100644
 +{
 +	return mt76_chip(dev) == 0x7927;
  }
-@@ -281,2 +286,3 @@ static inline bool is_mt76_fw_txp(struct mt76_dev *dev)
+@@ -286,2 +291,3 @@ static inline bool is_mt76_fw_txp(struct mt76_dev *dev)
  	case 0x7925:
 +	case 0x7927:
  	case 0x7663:

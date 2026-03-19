@@ -23,15 +23,24 @@ dry_run=false
 patches_to_gen=()
 for arg in "$@"; do
 	case "$arg" in
-		--dry-run) dry_run=true ;;
-		*) patches_to_gen+=("$arg") ;;
+	--dry-run) dry_run=true ;;
+	*) patches_to_gen+=("$arg") ;;
 	esac
 done
 
 # Read kernel version tag from PKGBUILD
 mt76_kver=$(grep '^_mt76_kver=' "$DKMS_DIR/PKGBUILD" | cut -d"'" -f2)
-base_tag="v${mt76_kver}"
 tarball="$DKMS_DIR/linux-${mt76_kver}.tar.xz"
+
+# The dkms branch must be based on dkms-base (v6.19.x + mt7902 patch).
+# This ensures diffs have the correct context for DKMS builds.
+base_ref="dkms-base"
+
+if ! git -C "$KERNEL_TREE" rev-parse --verify "$base_ref" &>/dev/null; then
+	echo "ERROR: $base_ref ref not found in $KERNEL_TREE"
+	echo "Create it: git checkout -b dkms-base v\${mt76_kver} && apply mt7902 patch"
+	exit 1
+fi
 
 if [[ ! -f "$tarball" ]]; then
 	echo "ERROR: Tarball $tarball not found"
@@ -39,18 +48,18 @@ if [[ ! -f "$tarball" ]]; then
 	exit 1
 fi
 
-# Get ordered commit list from kernel branch
+# Get ordered commit list from kernel branch (above dkms-base)
 mapfile -t commits < <(
 	git -C "$KERNEL_TREE" log --reverse --format='%H' \
-		"$KERNEL_BRANCH" --not "$base_tag"
+		"$KERNEL_BRANCH" --not "$base_ref"
 )
 
-if (( ${#commits[@]} == 0 )); then
-	echo "No commits found on $KERNEL_BRANCH above $base_tag"
+if ((${#commits[@]} == 0)); then
+	echo "No commits found on $KERNEL_BRANCH above $base_ref"
 	exit 1
 fi
 
-echo "Found ${#commits[@]} commits on $KERNEL_BRANCH (base: $base_tag)"
+echo "Found ${#commits[@]} commits on $KERNEL_BRANCH (base: $base_ref)"
 
 # Build subject-to-filename mapping from existing patches
 declare -A subject_to_file
@@ -77,7 +86,7 @@ git add -A
 git commit -q -m "kernel.org v${mt76_kver}"
 
 # Apply mt7902 patch to establish shifted baseline
-patch -p1 --quiet < "$DKMS_DIR/mt7902-wifi-6.19.patch"
+patch -p1 --quiet <"$DKMS_DIR/mt7902-wifi-6.19.patch"
 git add -A
 git commit -q -m "mt7902"
 
@@ -96,7 +105,7 @@ for i in "${!commits[@]}"; do
 
 	# Extract diff from kernel tree, strip mt76 path prefix
 	kernel_diff=$(git -C "$KERNEL_TREE" diff -U1 "${commit}^..$commit" \
-		-- "$MT76_SUBDIR/" | \
+		-- "$MT76_SUBDIR/" |
 		sed "s|a/${MT76_SUBDIR}/|a/|g; s|b/${MT76_SUBDIR}/|b/|g")
 
 	if [[ -z "$kernel_diff" ]]; then
@@ -123,21 +132,24 @@ for i in "${!commits[@]}"; do
 	if [[ -n "${subject_to_file[$subject]:-}" ]]; then
 		outfile="${subject_to_file[$subject]}"
 	else
-		slug=$(echo "$subject" | \
-			sed 's/wifi: mt76: mt7925: //' | \
-			tr '[:upper:]' '[:lower:]' | \
-			tr ' ' '-' | \
-			sed 's/[^a-z0-9-]//g' | \
-			cut -c1-40 | \
+		slug=$(echo "$subject" |
+			sed 's/wifi: mt76: mt7925: //' |
+			tr '[:upper:]' '[:lower:]' |
+			tr ' ' '-' |
+			sed 's/[^a-z0-9-]//g' |
+			cut -c1-40 |
 			sed 's/-$//')
 		outfile="mt7927-wifi-${nn}-${slug}.patch"
 	fi
 
 	# Filter to specific patches if requested
-	if (( ${#patches_to_gen[@]} > 0 )); then
+	if ((${#patches_to_gen[@]} > 0)); then
 		skip=true
 		for p in "${patches_to_gen[@]}"; do
-			if (( p == n )); then skip=false; break; fi
+			if ((p == n)); then
+				skip=false
+				break
+			fi
 		done
 		$skip && continue
 	fi
@@ -154,12 +166,12 @@ for i in "${!commits[@]}"; do
 		echo ""
 		echo "$commit"
 		echo "$dkms_diff"
-	} > "$DKMS_DIR/$outfile"
+	} >"$DKMS_DIR/$outfile"
 
 	echo "  [$nn/${#commits[@]}] $outfile"
 done
 
-if (( errors > 0 )); then
+if ((errors > 0)); then
 	echo "FAILED: $errors patch(es) could not be applied"
 	exit 1
 fi

@@ -14,32 +14,49 @@ pattern as mt7996:
   - PHY_CAP7: non-OFDMA UL MU-MIMO and MU beamformer for 320MHz
   - MCS/NSS: populate bw._320 maps for 6GHz band
 
-Guard all 320MHz capability advertisements behind is_mt7927() since
-320MHz support has only been validated on MT7927 hardware. The mt7925
-standalone chip may not support 320MHz operation.
+Introduce is_320mhz_supported() as a generic capability check using the
+mt7925 family ID. This avoids chip-specific references in common code,
+and automatically extends to new chips once they join the
+is_mt7925() family via chip ID helpers.
 
-Assisted-by: Claude Code <noreply@anthropic.com> [claude-opus-4-6]
-Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
 Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
+Tested-by: Samu Toljamo <samu.toljamo@gmail.com>
+Tested-by: Ariel Rosenfeld <ariel.rosenfeld.750@gmail.com>
+Tested-by: Chapuis Dario <chapuisdario4@gmail.com>
+Tested-by: Thibaut François <tibo@humeurlibre.fr>
+Tested-by: 张旭涵 <Loong.0x00@gmail.com>
+Signed-off-by: Javier Tia <floss@jetm.me>
 
-8ca13ea40c9ee1f2cb5389e99e65148591917194
+7cdd31001843d8098e56ca3aa0e405d2628cebc5
+diff --git a/mt76_connac.h b/mt76_connac.h
+index 51423c7..f76d978 100644
+--- a/mt76_connac.h
++++ b/mt76_connac.h
+@@ -179,2 +179,7 @@ static inline bool is_mt7925(struct mt76_dev *dev)
+ 
++static inline bool is_320mhz_supported(struct mt76_dev *dev)
++{
++	return is_mt7925(dev);
++}
++
+ static inline bool is_mt7920(struct mt76_dev *dev)
 diff --git a/mt7925/main.c b/mt7925/main.c
-index 2d358a9..4e12658 100644
+index f128a19..cd043ac 100644
 --- a/mt7925/main.c
 +++ b/mt7925/main.c
 @@ -185,2 +185,6 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
  
-+	if (band == NL80211_BAND_6GHZ && is_mt7927(&phy->dev->mt76))
++	if (band == NL80211_BAND_6GHZ && is_320mhz_supported(&phy->dev->mt76))
 +		eht_cap_elem->phy_cap_info[0] |=
 +			IEEE80211_EHT_PHY_CAP0_320MHZ_IN_6GHZ;
 +
  	eht_cap_elem->phy_cap_info[0] |=
 @@ -195,2 +199,7 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
  
-+	if (band == NL80211_BAND_6GHZ && is_mt7927(&phy->dev->mt76))
++	if (band == NL80211_BAND_6GHZ && is_320mhz_supported(&phy->dev->mt76))
 +		eht_cap_elem->phy_cap_info[1] |=
 +			u8_encode_bits(sts - 1,
 +				       IEEE80211_EHT_PHY_CAP1_BEAMFORMEE_SS_320MHZ_MASK);
@@ -47,7 +64,7 @@ index 2d358a9..4e12658 100644
  	eht_cap_elem->phy_cap_info[2] =
 @@ -199,2 +208,7 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
  
-+	if (band == NL80211_BAND_6GHZ && is_mt7927(&phy->dev->mt76))
++	if (band == NL80211_BAND_6GHZ && is_320mhz_supported(&phy->dev->mt76))
 +		eht_cap_elem->phy_cap_info[2] |=
 +			u8_encode_bits(sts - 1,
 +				       IEEE80211_EHT_PHY_CAP2_SOUNDING_DIM_320MHZ_MASK);
@@ -61,7 +78,7 @@ index 2d358a9..4e12658 100644
  	      width == NL80211_CHAN_WIDTH_80 ? 0x3 : 0x1;
 @@ -232,2 +247,7 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
  
-+	if (band == NL80211_BAND_6GHZ && is_mt7927(&phy->dev->mt76))
++	if (band == NL80211_BAND_6GHZ && is_320mhz_supported(&phy->dev->mt76))
 +		eht_cap_elem->phy_cap_info[7] |=
 +			IEEE80211_EHT_PHY_CAP7_NON_OFDMA_UL_MU_MIMO_320MHZ |
 +			IEEE80211_EHT_PHY_CAP7_MU_BEAMFORMER_320MHZ;
@@ -70,7 +87,7 @@ index 2d358a9..4e12658 100644
 @@ -241,2 +261,8 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
  	eht_nss->bw._160.rx_tx_mcs13_max_nss = val;
 +
-+	if (band == NL80211_BAND_6GHZ && is_mt7927(&phy->dev->mt76)) {
++	if (band == NL80211_BAND_6GHZ && is_320mhz_supported(&phy->dev->mt76)) {
 +		eht_nss->bw._320.rx_tx_mcs9_max_nss = val;
 +		eht_nss->bw._320.rx_tx_mcs11_max_nss = val;
 +		eht_nss->bw._320.rx_tx_mcs13_max_nss = val;

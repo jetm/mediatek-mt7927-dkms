@@ -9,16 +9,18 @@ Add IEEE80211_STA_RX_BW_320 cases to both functions. The RXV parser
 also handles BW_320+1 since the hardware can report 320MHz in two
 adjacent encoding positions.
 
-Also fix whitespace alignment in mt792x_regs.h defines.
-
-Assisted-by: Claude Code <noreply@anthropic.com> [claude-opus-4-6]
-Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
 Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
+Tested-by: Samu Toljamo <samu.toljamo@gmail.com>
+Tested-by: Ariel Rosenfeld <ariel.rosenfeld.750@gmail.com>
+Tested-by: Chapuis Dario <chapuisdario4@gmail.com>
+Tested-by: Thibaut François <tibo@humeurlibre.fr>
+Tested-by: 张旭涵 <Loong.0x00@gmail.com>
+Signed-off-by: Javier Tia <floss@jetm.me>
 
-5b35a6b614dd9998b6cdc4cd397ea543ec7abedb
+64bd4a6d0d2703648bc95ad7d3cf5e08ca1f3ca6
 diff --git a/mt7925/mac.c b/mt7925/mac.c
 index 871b671..106a26f 100644
 --- a/mt7925/mac.c
@@ -38,21 +40,3 @@ index 871b671..106a26f 100644
 +		stats->tx_bw[4]++;
 +		break;
  	case IEEE80211_STA_RX_BW_160:
-diff --git a/mt792x_regs.h b/mt792x_regs.h
-index c2ba9c0..a466a42 100644
---- a/mt792x_regs.h
-+++ b/mt792x_regs.h
-@@ -305,5 +305,5 @@
- #define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO_PFET2	BIT(21)
--#define MT_WFDMA0_GLO_CFG_ADDR_EXT_EN		BIT(26)
- #define MT_WFDMA0_GLO_CFG_OMIT_RX_INFO	BIT(27)
- #define MT_WFDMA0_GLO_CFG_OMIT_TX_INFO	BIT(28)
-+#define MT_WFDMA0_GLO_CFG_ADDR_EXT_EN		BIT(26)
- #define MT_WFDMA0_GLO_CFG_CLK_GAT_DIS	BIT(30)
-@@ -513,4 +513,4 @@
- /* CBInfra CBTOP remap values */
--#define MT_CBINFRA_REMAP_WF_VAL	0x74037001
--#define MT_CBINFRA_REMAP_BT_VAL	0x70007000
-+#define MT_CBINFRA_REMAP_WF_VAL		0x74037001
-+#define MT_CBINFRA_REMAP_BT_VAL		0x70007000
- 

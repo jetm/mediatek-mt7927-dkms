@@ -1,35 +1,30 @@
-wifi: mt76: mt7925: add MT7927 firmware paths and PCI device IDs
+wifi: mt76: mt7925: add MT7927 firmware paths
 
-Add PCI device IDs for MT7927 (14c3:7927) and MT7927 (14c3:6639)
-hardware variants, along with firmware path definitions for the MT7927
-WiFi firmware.
+Add firmware path definitions for MT7927 WiFi firmware (WIFI_RAM_CODE
+and PATCH_MCU) and the corresponding MODULE_FIRMWARE declarations. Add
+MT7927 cases to mt792x_ram_name() and mt792x_patch_name() so the driver
+loads the correct firmware for the 0x7927 chip ID.
 
-Known hardware using these IDs:
+PCI device table entries are deferred to a later patch to allow
+infrastructure setup before device enablement.
 
-  - ASUS ROG Crosshair X870E Hero (14c3:7927)
-  - Lenovo Legion Pro 7 16ARX9 (14c3:7927)
-  - Foxconn/Azurewave modules (14c3:6639)
-  - AMD RZ738 (MediaTek MT7927) (14c3:0738)
-
-Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
 Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
+Tested-by: Samu Toljamo <samu.toljamo@gmail.com>
+Tested-by: Ariel Rosenfeld <ariel.rosenfeld.750@gmail.com>
+Tested-by: Chapuis Dario <chapuisdario4@gmail.com>
+Tested-by: Thibaut François <tibo@humeurlibre.fr>
+Tested-by: 张旭涵 <Loong.0x00@gmail.com>
+Signed-off-by: Javier Tia <floss@jetm.me>
 
-4faea167c76294bdfb6ba2d7bb62c144c9c7a3ca
+5f95aed5ac1e781911ca9300fd77c3c68bd84193
 diff --git a/mt7925/pci.c b/mt7925/pci.c
-index c416175..54eac5c 100644
+index c416175..f820d5a 100644
 --- a/mt7925/pci.c
 +++ b/mt7925/pci.c
-@@ -18,2 +18,6 @@ static const struct pci_device_id mt7925_pci_device_table[] = {
- 		.driver_data = (kernel_ulong_t)MT7925_FIRMWARE_WM },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x7927),
-+		.driver_data = (kernel_ulong_t)MT7927_FIRMWARE_WM },
-+	{ PCI_DEVICE(PCI_VENDOR_ID_MEDIATEK, 0x6639),
-+		.driver_data = (kernel_ulong_t)MT7927_FIRMWARE_WM },
- 	{ },
-@@ -635,2 +639,4 @@ MODULE_FIRMWARE(MT7925_FIRMWARE_WM);
+@@ -635,2 +635,4 @@ MODULE_FIRMWARE(MT7925_FIRMWARE_WM);
  MODULE_FIRMWARE(MT7925_ROM_PATCH);
 +MODULE_FIRMWARE(MT7927_FIRMWARE_WM);
 +MODULE_FIRMWARE(MT7927_ROM_PATCH);

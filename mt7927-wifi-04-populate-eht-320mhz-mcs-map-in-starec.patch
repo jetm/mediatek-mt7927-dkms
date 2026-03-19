@@ -9,15 +9,20 @@ hardware and firmware advertise support for it.
 Add the missing memcpy for the 320MHz MCS map, matching the existing
 pattern for BW20, BW80, and BW160.
 
-Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Marcin FM <marcin@lgic.pl>
 Tested-by: Cristian-Florin Radoi <radoi.chris@gmail.com>
 Tested-by: George Salukvadze <giosal90@gmail.com>
 Tested-by: Evgeny Kapusta <3193631@gmail.com>
+Tested-by: Samu Toljamo <samu.toljamo@gmail.com>
+Tested-by: Ariel Rosenfeld <ariel.rosenfeld.750@gmail.com>
+Tested-by: Chapuis Dario <chapuisdario4@gmail.com>
+Tested-by: Thibaut François <tibo@humeurlibre.fr>
+Tested-by: 张旭涵 <Loong.0x00@gmail.com>
+Signed-off-by: Javier Tia <floss@jetm.me>
 
-c678834b732400db24dd8951a590ad8b9f569bea
+b9936709bfcbab5feb6c90ee54d9b665f96629e9
 diff --git a/mt7925/mcu.c b/mt7925/mcu.c
-index cf0fdea..8b5ffb2 100644
+index dd5ecb0..a7f27c5 100644
 --- a/mt7925/mcu.c
 +++ b/mt7925/mcu.c
 @@ -1685,2 +1685,3 @@ mt7925_mcu_sta_eht_tlv(struct sk_buff *skb, struct ieee80211_link_sta *link_sta)
