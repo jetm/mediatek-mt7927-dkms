@@ -57,7 +57,8 @@ jobs:
         run: |
           dnf install -y gh
           gh release upload "${{ needs.create-release.outputs.tag }}" \
-            rpmbuild/RPMS/noarch/*.rpm
+            rpmbuild/RPMS/noarch/*.rpm \
+            --repo "${{ github.repository }}"
 
   build-deb:
     needs: create-release
