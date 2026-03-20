@@ -84,8 +84,27 @@ cd mediatek-mt7927-dkms
 makepkg -si
 ```
 
-### Other distributions
+### Other distributions (Fedora, Ubuntu, etc.)
 
+Supports kernels 6.17+. Requires `dkms`, `make`, `gcc`, `python3`, `curl`,
+and kernel headers.
+
+```bash
+git clone https://github.com/jetm/mediatek-mt7927-dkms.git
+cd mediatek-mt7927-dkms
+make download
+make sources
+sudo make install
+sudo dkms add mediatek-mt7927/2.5
+sudo dkms build mediatek-mt7927/2.5
+sudo dkms install mediatek-mt7927/2.5
+sudo modprobe -r mt7925e mt7921e btusb
+sudo modprobe mt7925e btusb
+```
+
+#### Community ports
+
+- **Fedora RPM:** [rocketraman/mediatek-mt7927-dkms](https://github.com/rocketraman/mediatek-mt7927-dkms)
 - **NixOS:** [cmspam/mt7927-nixos](https://github.com/cmspam/mt7927-nixos), [clemenscodes/linux-mt7927](https://github.com/clemenscodes/linux-mt7927)
 - **Ubuntu:** [giosal/mediatek-mt7927-dkms](https://github.com/giosal/mediatek-mt7927-dkms)
 - **Bazzite (Fedora Atomic):** [samutoljamo/bazzite-mt7927](https://github.com/samutoljamo/bazzite-mt7927)
