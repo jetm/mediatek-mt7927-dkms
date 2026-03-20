@@ -3,15 +3,14 @@
 DKMS driver for MediaTek MT7927 (Filogic 380) - WiFi 7 + Bluetooth 5.4 on Linux.
 
 Builds out-of-tree btusb/btmtk (Bluetooth) and mt76 (WiFi) kernel modules with
-device ID and firmware patches not yet in mainline. Distributed as an
-[AUR package](https://aur.archlinux.org/packages/mediatek-mt7927-dkms).
+device ID and firmware patches not yet in mainline. Supports kernels 6.17+.
 
 ## Status
 
 | Component | Status | Details |
 |-----------|--------|---------|
 | Bluetooth (MT6639 via USB) | **WORKING** | Patched btusb with device ID + firmware |
-| WiFi (MT7925e via PCIe) | **WORKING** | 2.4/5/6 GHz, 320MHz, PM, suspend/resume |
+| WiFi (MT7925e via PCIe) | **WORKING** | 2.4/5/6 GHz, 320MHz EHT, PM, suspend/resume |
 
 **Known issues:**
 - TX retransmissions elevated vs baseline (firmware-side, not driver-fixable) ([#26](https://github.com/jetm/mediatek-mt7927-dkms/issues/26))
@@ -21,8 +20,9 @@ device ID and firmware patches not yet in mainline. Distributed as an
   locks up and only recovers with a full power drain.
   ([#23](https://github.com/jetm/mediatek-mt7927-dkms/issues/23))
 
-**Recently fixed:**
+**Recently fixed (v2.6):**
 - 5/6 GHz WPA 4WAY_HANDSHAKE_TIMEOUT - fixed by explicit band_idx assignment ([#24](https://github.com/jetm/mediatek-mt7927-dkms/issues/24))
+- test-driver.sh false PASSED when checks actually failed ([#31](https://github.com/jetm/mediatek-mt7927-dkms/issues/31))
 
 ## Supported hardware
 
@@ -31,7 +31,7 @@ device ID and firmware patches not yet in mainline. Distributed as an
 | ASUS ROG Crosshair X870E Hero | 0489:e13a | 14c3:7927 |
 | ASUS ProArt X870E-Creator WiFi | 13d3:3588 | 14c3:6639 |
 | ASUS ROG Strix X870-I | - | 14c3:7927 |
-| ASUS X870E-E | 13d3:3588 | 14c3:7927 |
+| ASUS ROG Strix X870E-E | 13d3:3588 | 14c3:7927 |
 | Gigabyte X870E Aorus Master X3D | 0489:e10f | 14c3:7927 |
 | Gigabyte Z790 AORUS MASTER X | 0489:e10f | 14c3:7927 |
 | Gigabyte Z790 AORUS ELITE X WiFi7 | 0489:e10f | 14c3:7927 |
@@ -56,7 +56,7 @@ MediaTek naming is confusing - see
 [MT7927 WiFi: The Missing Piece](https://jetm.github.io/blog/posts/mt7927-wifi-the-missing-piece/)
 for the full story. Here's the short version:
 
-```
+```text
 MT7927 = combo module on the motherboard (WiFi 7 + BT 5.4, Filogic 380)
   ├─ BT side:   internally MT6639, connects via USB
   └─ WiFi side: architecturally MT7925, connects via PCIe
@@ -68,6 +68,19 @@ chain with mt7925e.
 
 ## Install
 
+### Pre-built packages (Fedora / Ubuntu)
+
+Download `.rpm` or `.deb` from the
+[latest release](https://github.com/jetm/mediatek-mt7927-dkms/releases/latest):
+
+```bash
+# Fedora / RPM-based
+sudo dnf install ./mediatek-mt7927-dkms-*.rpm
+
+# Ubuntu / Debian
+sudo dpkg -i ./mediatek-mt7927-dkms_*.deb
+```
+
 ### AUR (Arch Linux)
 
 ```bash
@@ -76,35 +89,7 @@ yay -S mediatek-mt7927-dkms
 paru -S mediatek-mt7927-dkms
 ```
 
-### Manual (Arch Linux)
-
-```bash
-git clone https://aur.archlinux.org/mediatek-mt7927-dkms.git
-cd mediatek-mt7927-dkms
-makepkg -si
-```
-
-### Fedora / RPM-based
-
-```bash
-git clone https://github.com/jetm/mediatek-mt7927-dkms.git
-cd mediatek-mt7927-dkms
-sudo dnf install dkms kernel-devel make gcc python3 curl rpm-build
-make rpm
-sudo dnf install rpmbuild/RPMS/noarch/mediatek-mt7927-dkms-*.rpm
-```
-
-### Ubuntu / Debian
-
-```bash
-git clone https://github.com/jetm/mediatek-mt7927-dkms.git
-cd mediatek-mt7927-dkms
-sudo apt install dkms build-essential python3 curl dpkg-dev
-make deb
-sudo dpkg -i mediatek-mt7927-dkms_*.deb
-```
-
-### Manual (any distro)
+### Build from source
 
 Supports kernels 6.17+. Requires `dkms`, `make`, `gcc`, `python3`, `curl`,
 and kernel headers.
@@ -115,18 +100,30 @@ cd mediatek-mt7927-dkms
 make download
 make sources
 sudo make install
-sudo dkms add mediatek-mt7927/2.5
-sudo dkms build mediatek-mt7927/2.5
-sudo dkms install mediatek-mt7927/2.5
+sudo dkms add mediatek-mt7927/2.6
+sudo dkms build mediatek-mt7927/2.6
+sudo dkms install mediatek-mt7927/2.6
 sudo modprobe -r mt7925e mt7921e btusb
 sudo modprobe mt7925e btusb
 ```
 
-#### Community ports
+You can also build packages locally:
 
-- **Fedora RPM:** [rocketraman/mediatek-mt7927-dkms](https://github.com/rocketraman/mediatek-mt7927-dkms)
+```bash
+# Fedora
+sudo dnf install rpm-build
+make rpm
+sudo dnf install rpmbuild/RPMS/noarch/mediatek-mt7927-dkms-*.rpm
+
+# Ubuntu / Debian
+sudo apt install dpkg-dev
+make deb
+sudo dpkg -i mediatek-mt7927-dkms_*.deb
+```
+
+### Community ports
+
 - **NixOS:** [cmspam/mt7927-nixos](https://github.com/cmspam/mt7927-nixos), [clemenscodes/linux-mt7927](https://github.com/clemenscodes/linux-mt7927)
-- **Ubuntu:** [giosal/mediatek-mt7927-dkms](https://github.com/giosal/mediatek-mt7927-dkms)
 - **Bazzite (Fedora Atomic):** [samutoljamo/bazzite-mt7927](https://github.com/samutoljamo/bazzite-mt7927)
 
 ## Post-install
@@ -172,7 +169,6 @@ nmcli connection modify <ssid> connection.auth-retries 3
 rfkill unblock bluetooth
 ```
 
-
 **Bluetooth USB device disappeared:**
 
 The MT6639 BT firmware can lock up during module reload or DKMS upgrade, causing the
@@ -185,14 +181,14 @@ least 10 seconds, then power back on. A CMOS reset also works but is more disrup
 **DKMS not built for current kernel:**
 
 ```bash
-sudo dkms install mediatek-mt7927/2.3
+sudo dkms install mediatek-mt7927/2.6
 ```
 
 ## Upstream tracking
 
 | Submission | Status | Tracking |
 |-----------|--------|----------|
-| WiFi patches (linux-wireless@) | Under review | [#15](https://github.com/jetm/mediatek-mt7927-dkms/issues/15) |
+| WiFi patches (linux-wireless@) | v2 under review, v3 in progress | [#15](https://github.com/jetm/mediatek-mt7927-dkms/issues/15) |
 | BT driver patches (linux-bluetooth@) | v2 pending | [#16](https://github.com/jetm/mediatek-mt7927-dkms/issues/16) |
 | BT firmware (linux-firmware) | MR open | [#17](https://github.com/jetm/mediatek-mt7927-dkms/issues/17) |
 
@@ -207,9 +203,9 @@ and BT firmware to linux-firmware. Once merged, this package becomes unnecessary
 for kernels that include MT7927 support.
 
 - **WiFi** ([#15](https://github.com/jetm/mediatek-mt7927-dkms/issues/15)) -
-  18-patch series on linux-wireless@, under review.
+  13-patch series on linux-wireless@, v2 under review, v3 addressing Sean Wang's feedback.
 - **BT driver** ([#16](https://github.com/jetm/mediatek-mt7927-dkms/issues/16)) -
-  2-patch series on linux-bluetooth@, v2 pending per reviewer feedback (split
+  8-patch series on linux-bluetooth@, v2 pending per reviewer feedback (split
   USB IDs into per-device commits, add Tested-by + lsusb/dmesg).
 - **BT firmware** ([#17](https://github.com/jetm/mediatek-mt7927-dkms/issues/17)) -
   GitLab MR [!946](https://gitlab.com/kernel-firmware/linux-firmware/-/merge_requests/946)
@@ -217,7 +213,7 @@ for kernels that include MT7927 support.
 
 ### After the base series
 
-These are planned as follow-up patches once the 18-patch base series lands:
+These are planned as follow-up patches once the base series lands:
 
 - **MLO (Multi-Link Operation)** ([#25](https://github.com/jetm/mediatek-mt7927-dkms/issues/25)) -
   STR dual-link verified working (5GHz+2.4GHz) with three targeted fixes:
@@ -226,8 +222,6 @@ These are planned as follow-up patches once the 18-patch base series lands:
 - **mac_reset recovery** ([#28](https://github.com/jetm/mediatek-mt7927-dkms/issues/28)) -
   full DMA reinitialization on firmware crash. Has unguarded paths on
   mt7925 standalone that need fixing first.
-- **Kernel < 6.19 compatibility** ([#27](https://github.com/jetm/mediatek-mt7927-dkms/issues/27)) -
-  backport support for older kernels (Fedora/Bazzite use case).
 
 ### Firmware dependencies
 
