@@ -21,10 +21,16 @@ echo "==> Building mediatek-mt7927-dkms ${VERSION} .rpm"
 # Create rpmbuild tree
 mkdir -p "${TOPDIR}"/{BUILD,RPMS,SOURCES,SPECS,SRPMS}
 
-# Create source tarball from current repo
+# Create source tarball
 TARNAME="mediatek-mt7927-dkms-${VERSION}"
-git archive --format=tar.gz --prefix="${TARNAME}/" HEAD \
-    -o "${TOPDIR}/SOURCES/${TARNAME}.tar.gz"
+TARBALL="${TOPDIR}/SOURCES/${TARNAME}.tar.gz"
+if command -v git &>/dev/null && git rev-parse --git-dir &>/dev/null 2>&1; then
+    git archive --format=tar.gz --prefix="${TARNAME}/" HEAD -o "${TARBALL}"
+else
+    # Fallback for non-git environments (CI containers)
+    tar -czf "${TARBALL}" --transform "s,^\.,$TARNAME," \
+        --exclude='.git' --exclude='rpmbuild' --exclude='*.pkg.tar*' .
+fi
 
 # Copy spec
 cp "${SPEC}" "${TOPDIR}/SPECS/"
