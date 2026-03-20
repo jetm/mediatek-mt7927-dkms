@@ -4,8 +4,8 @@ set -euo pipefail
 # Release script for mediatek-mt7927-dkms.
 #
 # Bumps version across PKGBUILD, dkms.conf, and install script,
-# rebuilds the package, regenerates the changelog, and creates
-# a GitHub release with tag.
+# rebuilds the package, tags, and pushes. GitHub Actions handles
+# release creation, changelog, RPM/DEB builds, and asset upload.
 #
 # Usage:
 #   ./release.sh patch     # bump pkgver minor (2.3 -> 2.4), reset pkgrel=1
@@ -110,11 +110,6 @@ echo ""
 echo "Building package..."
 aurgen
 
-# Generate changelog
-echo ""
-echo "Generating changelog..."
-git-cliff --config cliff.toml --tag "${new_tag}" -o CHANGELOG.md
-
 # Show what will be committed
 echo ""
 echo "Changes to commit:"
@@ -125,12 +120,12 @@ echo ""
 read -rp "Commit and release ${new_tag}? [y/N] " confirm
 if [[ "$confirm" != [yY] ]]; then
 	echo "Aborted. Reverting version changes..."
-	git checkout -- PKGBUILD dkms.conf mediatek-mt7927-dkms.install CHANGELOG.md
+	git checkout -- PKGBUILD dkms.conf mediatek-mt7927-dkms.install
 	exit 1
 fi
 
 # Commit
-git add PKGBUILD dkms.conf mediatek-mt7927-dkms.install CHANGELOG.md .SRCINFO
+git add PKGBUILD dkms.conf mediatek-mt7927-dkms.install .SRCINFO
 git commit -m "pkg: Release ${new_tag}"
 
 # Tag
@@ -140,24 +135,20 @@ git tag "${new_tag}"
 echo ""
 echo "Pushing to origin and aur..."
 git push origin master
+
 # AUR rejects subdirectories (.github/). Create a filtered commit parented on
 # AUR's current master so the hook only sees clean commits.
 aur_tree=$(git ls-tree HEAD | grep -v '.github' | git mktree)
 aur_parent=$(git rev-parse aur/master)
 aur_commit=$(git commit-tree "${aur_tree}" -p "${aur_parent}" -m "Release ${new_tag}")
 git -c push.followTags=false push aur "${aur_commit}:refs/heads/master"
-git -c push.followTags=false push origin "${new_tag}"
 
-# Create GitHub release
-echo ""
-echo "Creating GitHub release..."
-notes=$(git-cliff --config cliff.toml --unreleased --strip header --tag "${new_tag}")
-gh release create "${new_tag}" \
-	--repo "$REPO" \
-	--title "${new_tag}" \
-	--notes "$notes"
+# Push tag — triggers GitHub Actions workflow which creates the release,
+# generates changelog, builds RPM/DEB, and attaches artifacts.
+git push origin "${new_tag}"
 
 echo ""
 echo "Released ${new_tag}"
 echo "  AUR: https://aur.archlinux.org/packages/mediatek-mt7927-dkms"
-echo "  GitHub: https://github.com/${REPO}/releases/tag/${new_tag}"
+echo "  GitHub Actions will create the release and build packages."
+echo "  Track: https://github.com/${REPO}/actions"

@@ -1,28 +1,66 @@
-name: Build release packages
+name: Release
 
 on:
-  release:
-    types: [published]
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
 
 jobs:
+  create-release:
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Get tag name
+        id: tag
+        run: echo "tag=${GITHUB_REF#refs/tags/}" >> "$GITHUB_OUTPUT"
+
+      - name: Install git-cliff
+        uses: kenji-miyake/setup-git-cliff@v2
+
+      - name: Generate changelog
+        run: |
+          git-cliff --config cliff.toml --unreleased --strip header \
+            --tag "${{ steps.tag.outputs.tag }}" > /tmp/release-notes.md
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ steps.tag.outputs.tag }}" \
+            --title "${{ steps.tag.outputs.tag }}" \
+            --notes-file /tmp/release-notes.md
+
   build-rpm:
+    needs: create-release
     runs-on: ubuntu-latest
     container: fedora:43
     steps:
       - uses: actions/checkout@v4
 
       - name: Install dependencies
-        run: dnf install -y rpm-build make gcc python3 curl
+        run: dnf install -y rpm-build make gcc python3 curl git
 
       - name: Build RPM
         run: make rpm
 
       - name: Upload RPM to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: rpmbuild/RPMS/noarch/*.rpm
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          dnf install -y gh
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            rpmbuild/RPMS/noarch/*.rpm
 
   build-deb:
+    needs: create-release
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -34,6 +72,8 @@ jobs:
         run: make deb
 
       - name: Upload DEB to release
-        uses: softprops/action-gh-release@v2
-        with:
-          files: "*.deb"
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release upload "${{ needs.create-release.outputs.tag }}" \
+            *.deb
