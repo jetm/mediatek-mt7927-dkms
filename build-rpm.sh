@@ -30,7 +30,7 @@ git archive --format=tar.gz --prefix="${TARNAME}/" HEAD \
 cp "${SPEC}" "${TOPDIR}/SPECS/"
 
 # Build
-rpmbuild --define "_topdir ${TOPDIR}" -bb "${TOPDIR}/SPECS/${SPEC}"
+rpmbuild --define "_topdir ${TOPDIR}" --nodeps -bb "${TOPDIR}/SPECS/${SPEC}"
 
 echo "==> RPMs:"
 find "${TOPDIR}/RPMS" -name '*.rpm' -print
