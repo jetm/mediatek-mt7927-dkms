@@ -698,10 +698,34 @@ check_errors() {
 }
 
 # ---------------------------------------------------------------------------
+# Module reload (ensures we test installed DKMS build, not boot-time modules)
+# ---------------------------------------------------------------------------
+reload_modules() {
+	# WiFi modules (order matters: leaf drivers first)
+	local wifi_mods=(mt7925e mt7921e mt7925_common mt7921_common mt792x_lib mt76_connac_lib mt76)
+	local bt_mods=(btusb btmtk)
+
+	modprobe -r "${wifi_mods[@]}" 2>/dev/null || true
+	modprobe -r "${bt_mods[@]}" 2>/dev/null || true
+
+	# Reload - kernel resolves DKMS vs built-in automatically
+	modprobe mt7925e 2>/dev/null || true
+	modprobe mt7921e 2>/dev/null || true
+	modprobe btusb 2>/dev/null || true
+
+	# Let firmware init complete
+	sleep 3
+}
+
+# ---------------------------------------------------------------------------
 # Main
 # ---------------------------------------------------------------------------
 main() {
 	local iface="${1:-}"
+
+	# Reload WiFi and BT modules so we test the installed DKMS build,
+	# not stale modules from boot time.
+	reload_modules
 
 	# Auto-detect interface if not specified
 	if [[ -z "$iface" ]]; then
