@@ -1,0 +1,167 @@
+wifi: mt76: mt7925: implement MT7927 mac_reset recovery
+
+Implement chip reset recovery for MT7927 so the driver can auto-recover
+from MCU firmware lockups without requiring a manual module reload.
+
+The MT7927 reset was previously blocked (-EOPNOTSUPP) because the
+standard MT7925 reset path uses mt792x_wfsys_reset() + CLR_OWN which
+destroys WFDMA ring configuration. MT7927's ROM reinitializes WFDMA on
+every CLR_OWN, wiping ring and prefetch config set up by DMA init.
+
+The MT7927 reset path instead:
+  1. Resets the WF subsystem through CBInfra RGU (mt7927_chip_init)
+  2. Triggers ROM WFDMA init via SET_OWN/CLR_OWN (mt7927_pre_ring_setup)
+  3. Reprograms DMA rings and prefetch via mt792x_wpdma_reset(force=false)
+  4. Skips the SET_OWN/CLR_OWN PM cycle before firmware reload (same
+     pattern as mt7925e_mcu_init) to avoid a second WFDMA reinit
+  5. Re-enables DBDC after firmware reload (required for 5/6 GHz)
+
+The probe-path functions mt7927_cbtop_remap(), mt7927_chip_init(), and
+mt7927_pre_ring_setup() are made non-static and declared in mt7925.h so
+the reset path in pci_mac.c can call them. mt7925_mcu_set_dbdc() is
+exported from mt7925-common.ko so mt7925e.ko can call it.
+
+Signed-off-by: Javier Tia <floss@jetm.me>
+
+diff --git a/mt7925/mt7925.h b/mt7925/mt7925.h
+index 2f908d1..cdb6136 100644
+--- a/mt7925/mt7925.h
++++ b/mt7925/mt7925.h
+@@ -384,4 +384,8 @@ int mt7925_testmode_dump(struct ieee80211_hw *hw, struct sk_buff *msg,
+ 			 struct netlink_callback *cb, void *data, int len);
+
+ int mt7925_mcu_set_rssimonitor(struct mt792x_dev *dev, struct ieee80211_vif *vif);
++
++void mt7927_cbtop_remap(struct mt792x_dev *dev);
++int mt7927_chip_init(struct mt792x_dev *dev);
++int mt7927_pre_ring_setup(struct mt792x_dev *dev);
+ #endif
+diff --git a/mt7925/pci.c b/mt7925/pci.c
+index 112625a..482c30c 100644
+--- a/mt7925/pci.c
++++ b/mt7925/pci.c
+@@ -260,7 +260,7 @@ static void mt7927_dma_prefetch(struct mt792x_dev *dev)
+ 	mt76_wr(dev, MT_WFDMA0_TX_RING0_EXT_CTRL, PREFETCH(0x0280, 0x4));
+ }
+
+-static int mt7927_pre_ring_setup(struct mt792x_dev *dev)
++int mt7927_pre_ring_setup(struct mt792x_dev *dev)
+ {
+ 	int ret;
+
+@@ -406,7 +406,7 @@ static const struct mt792x_irq_map mt7927_irq_map = {
+ 	},
+ };
+
+-static int mt7927_chip_init(struct mt792x_dev *dev)
++int mt7927_chip_init(struct mt792x_dev *dev)
+ {
+ 	struct mt76_dev *mdev = &dev->mt76;
+ 	u32 val;
+@@ -448,7 +448,7 @@ static int mt7927_chip_init(struct mt792x_dev *dev)
+ 	return 0;
+ }
+
+-static void mt7927_cbtop_remap(struct mt792x_dev *dev)
++void mt7927_cbtop_remap(struct mt792x_dev *dev)
+ {
+ 	/* CONNINFRA wakeup - required before CBInfra register access */
+ 	mt76_wr(dev, MT7927_CBINFRA_WAKEPU_TOP, 0x1);
+diff --git a/mt7925/mcu.c b/mt7925/mcu.c
+index 1234567..abcdefg 100644
+--- a/mt7925/mcu.c
++++ b/mt7925/mcu.c
+@@ -2928,6 +2928,7 @@ int mt7925_mcu_set_dbdc(struct mt76_phy *phy, bool enable)
+
+ 	return err;
+ }
++EXPORT_SYMBOL_GPL(mt7925_mcu_set_dbdc);
+
+ static void
+ mt7925_mcu_build_scan_ie_tlv(struct mt76_dev *mdev,
+diff --git a/mt7925/pci_mac.c b/mt7925/pci_mac.c
+index cf578a2..afd3c7f 100644
+--- a/mt7925/pci_mac.c
++++ b/mt7925/pci_mac.c
+@@ -2,6 +2,7 @@
+ /* Copyright (C) 2023 MediaTek Inc. */
+
+ #include "mt7925.h"
++#include "mcu.h"
+ #include "../dma.h"
+ #include "mac.h"
+
+@@ -72,14 +73,6 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
+ 	const struct mt792x_irq_map *irq_map = dev->irq_map;
+ 	int i, err;
+
+-	/* MT7927: CLR_OWN and WPDMA reset destroy DMA ring configuration.
+-	 * A full reset requires re-running mt7927_dma_init() which is not
+-	 * yet implemented in the recovery path. */
+-	if (is_mt7927(&dev->mt76)) {
+-		dev_warn(dev->mt76.dev, "MT7927 mac_reset not supported, reload module to recover\n");
+-		return -EOPNOTSUPP;
+-	}
+-
+ 	mt792xe_mcu_drv_pmctrl(dev);
+
+ 	mt76_connac_free_pending_tx_skbs(&dev->pm, NULL);
+@@ -107,7 +100,21 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
+ 	mt7925_tx_token_put(dev);
+ 	idr_init(&dev->mt76.token);
+
+-	mt792x_wpdma_reset(dev, true);
++	if (is_mt7927(&dev->mt76)) {
++		mt7927_cbtop_remap(dev);
++		err = mt7927_chip_init(dev);
++		if (!err)
++			err = mt7927_pre_ring_setup(dev);
++		/* Reprogram DMA rings for the freshly reset hardware.
++		 * force=false: skip mt792x_wfsys_reset (chip_init did
++		 * the equivalent via CBInfra RGU). */
++		if (!err)
++			err = mt792x_wpdma_reset(dev, false);
++		if (err)
++			goto out;
++	} else {
++		mt792x_wpdma_reset(dev, true);
++	}
+
+ 	mt76_for_each_q_rx(&dev->mt76, i) {
+ 		napi_enable(&dev->mt76.napi[i]);
+@@ -132,18 +138,29 @@ int mt7925e_mac_reset(struct mt792x_dev *dev)
+ 		MT_INT_MCU_CMD);
+ 	mt76_wr(dev, MT_PCIE_MAC_INT_ENABLE, 0xff);
+
+-	err = mt792xe_mcu_fw_pmctrl(dev);
+-	if (err)
+-		return err;
++	/* MT7927: skip SET_OWN/CLR_OWN cycle before firmware reload.
++	 * CLR_OWN triggers ROM to reinitialize WFDMA, wiping the ring
++	 * config we just restored. pre_ring_setup already did CLR_OWN. */
++	if (!is_mt7927(&dev->mt76)) {
++		err = mt792xe_mcu_fw_pmctrl(dev);
++		if (err)
++			return err;
+
+-	err = __mt792xe_mcu_drv_pmctrl(dev);
+-	if (err)
+-		goto out;
++		err = __mt792xe_mcu_drv_pmctrl(dev);
++		if (err)
++			goto out;
++	}
+
+ 	err = mt7925_run_firmware(dev);
+ 	if (err)
+ 		goto out;
+
++	if (is_mt7927(&dev->mt76)) {
++		err = mt7925_mcu_set_dbdc(&dev->mphy, true);
++		if (err)
++			goto out;
++	}
++
+ 	err = mt7925_mcu_set_eeprom(dev);
+ 	if (err)
+ 		goto out;
