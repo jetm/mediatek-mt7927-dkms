@@ -12,18 +12,22 @@ set -euo pipefail
 #   ./gen-dkms-patches.sh 14           # regenerate just patch #14
 #   ./gen-dkms-patches.sh 14 16 18     # regenerate specific patches
 #   ./gen-dkms-patches.sh --dry-run    # verify patches apply, don't write
+#   ./gen-dkms-patches.sh --rebase     # rebase DKMS branch from upstream, then generate
 
 DKMS_DIR="$(cd "$(dirname "$0")" && pwd)"
 KERNEL_TREE="${KERNEL_TREE:-$HOME/repos/personal/linux-stable}"
 KERNEL_BRANCH="${KERNEL_BRANCH:-mt7927-wifi-dkms}"
+UPSTREAM_BRANCH="${UPSTREAM_BRANCH:-mt7927-wifi-support-v3}"
 MT76_SUBDIR="drivers/net/wireless/mediatek/mt76"
 
 # Parse arguments
 dry_run=false
+do_rebase=false
 patches_to_gen=()
 for arg in "$@"; do
 	case "$arg" in
 	--dry-run) dry_run=true ;;
+	--rebase) do_rebase=true ;;
 	*) patches_to_gen+=("$arg") ;;
 	esac
 done
@@ -40,6 +44,54 @@ if ! git -C "$KERNEL_TREE" rev-parse --verify "$base_ref" &>/dev/null; then
 	echo "ERROR: $base_ref ref not found in $KERNEL_TREE"
 	echo "Create it: git checkout -b dkms-base v\${mt76_kver} && apply mt7902 patch"
 	exit 1
+fi
+
+# ── Rebase DKMS branch from upstream ────────────────────────────────
+if $do_rebase; then
+	if ! git -C "$KERNEL_TREE" rev-parse --verify "$UPSTREAM_BRANCH" &>/dev/null; then
+		echo "ERROR: upstream branch $UPSTREAM_BRANCH not found"
+		exit 1
+	fi
+
+	# Count upstream commits (only mt76 changes above the merge base)
+	upstream_base=$(git -C "$KERNEL_TREE" log --format='%H' \
+		"$UPSTREAM_BRANCH" -- "$MT76_SUBDIR/" | tail -1)
+	upstream_tip=$(git -C "$KERNEL_TREE" rev-parse "$UPSTREAM_BRANCH")
+	commit_count=$(git -C "$KERNEL_TREE" rev-list --count \
+		"${upstream_base}..${upstream_tip}" -- "$MT76_SUBDIR/")
+
+	# Get upstream commit range (mt76 commits only)
+	mapfile -t upstream_commits < <(
+		git -C "$KERNEL_TREE" log --reverse --format='%H' \
+			"${UPSTREAM_BRANCH}~${commit_count}..${UPSTREAM_BRANCH}"
+	)
+
+	echo "==> Rebasing $KERNEL_BRANCH onto $base_ref with ${#upstream_commits[@]} commits from $UPSTREAM_BRANCH..."
+
+	# Save current branch
+	prev_branch=$(git -C "$KERNEL_TREE" symbolic-ref --short HEAD 2>/dev/null || echo "")
+
+	# Reset DKMS branch to base
+	git -C "$KERNEL_TREE" branch -f "$KERNEL_BRANCH" "$base_ref"
+	git -C "$KERNEL_TREE" checkout "$KERNEL_BRANCH"
+
+	# Cherry-pick all upstream commits
+	if ! git -C "$KERNEL_TREE" cherry-pick "${upstream_commits[@]}" 2>&1; then
+		echo ""
+		echo "Cherry-pick conflict detected. Resolve manually:"
+		echo "  cd $KERNEL_TREE"
+		echo "  # resolve conflicts"
+		echo "  git cherry-pick --continue"
+		echo "  # then re-run: ./gen-dkms-patches.sh"
+		exit 1
+	fi
+
+	echo "==> Rebase complete: $(git -C "$KERNEL_TREE" log --oneline "$KERNEL_BRANCH" --not "$base_ref" | wc -l) commits"
+
+	# Restore previous branch
+	if [[ -n "$prev_branch" ]]; then
+		git -C "$KERNEL_TREE" checkout "$prev_branch"
+	fi
 fi
 
 if [[ ! -f "$tarball" ]]; then
