@@ -10,3 +10,8 @@ linux-driver-mediatek-mt7927-bluetooth/
 __pycache__/
 patches/*.patch
 patches/*.eml
+tmp.*/*
+CLAUDE.md
+AGENTS.md
+rpmbuild/
+
