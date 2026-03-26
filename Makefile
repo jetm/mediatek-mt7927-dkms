@@ -124,7 +124,7 @@ install: sources
 	install -m644 $(SRCDIR)/mt76/mt7925/Kbuild "$(DESTDIR)$(DKMS_PREFIX)/mt76/mt7925/"
 	# BT firmware
 	install -Dm644 "$(SRCDIR)/firmware/BT_RAM_CODE_MT6639_2_1_hdr.bin" \
-		"$(DESTDIR)$(FIRMWARE_PREFIX)/mt6639/BT_RAM_CODE_MT6639_2_1_hdr.bin"
+		"$(DESTDIR)$(FIRMWARE_PREFIX)/mt7927/BT_RAM_CODE_MT6639_2_1_hdr.bin"
 	# WiFi firmware
 	install -Dm644 "$(SRCDIR)/firmware/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin" \
 		"$(DESTDIR)$(FIRMWARE_PREFIX)/mt7927/WIFI_MT6639_PATCH_MCU_2_1_hdr.bin"
