@@ -37,7 +37,7 @@ Signed-off-by: Javier Tia <floss@jetm.me>
 Tested-by: Jose Tiburcio Ribeiro Netto <jnetto@mineiro.io>
 Tested-by: Ivan Lubnin <lubnin.ivan@gmail.com>
 
-4abfae48525d9cf02e3b4ccb839bde94a0c5b9f3
+275ad6a62a0141e49e904e0168f6a00c20d177a7
 diff --git a/btusb.c b/btusb.c
 index de9c3bf..e15695f 100644
 --- a/btusb.c
