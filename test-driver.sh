@@ -68,7 +68,7 @@ get_pci_id() {
 # 4. Module loading
 # ---------------------------------------------------------------------------
 check_modules() {
-	local expected=(mt7925e mt76 mt76_connac_lib mt792x_lib)
+	local expected=(mt7925e mt76 mt76_connac_lib mt792x_lib btusb btmtk)
 	local loaded=()
 	local missing=()
 
@@ -121,20 +121,30 @@ check_dkms() {
 # 6. Module source (DKMS vs built-in)
 # ---------------------------------------------------------------------------
 check_module_source() {
-	local mod_path
-	mod_path="$(modinfo -n mt7925e 2>/dev/null)" || true
+	local mods=(mt7925e btusb)
+	local all_dkms=true
 
-	if [[ -z "$mod_path" ]]; then
-		skip "mt7925e not found"
-		return
-	fi
+	for mod in "${mods[@]}"; do
+		local mod_path
+		mod_path="$(modinfo -n "$mod" 2>/dev/null)" || true
 
-	if echo "$mod_path" | has_match "updates/dkms"; then
+		if [[ -z "$mod_path" ]]; then
+			continue
+		fi
+
+		if ! echo "$mod_path" | has_match "updates/dkms"; then
+			if echo "$mod_path" | has_match "kernel/"; then
+				fail "$mod is built-in (DKMS module not loaded)"
+				return
+			fi
+			all_dkms=false
+		fi
+	done
+
+	if $all_dkms; then
 		ok "DKMS"
-	elif echo "$mod_path" | has_match "kernel/"; then
-		fail "built-in (DKMS module not loaded)"
 	else
-		ok "$mod_path"
+		ok "mixed"
 	fi
 }
 
@@ -244,7 +254,7 @@ check_bt_firmware() {
 	fi
 
 	local bt_dmesg
-	bt_dmesg="$(echo "$dmesg_out" | grep -iE 'btmtk|btusb|mt6639|BT_RAM_CODE' || true)"
+	bt_dmesg="$(echo "$dmesg_out" | grep -iE 'btmtk|btusb|mt6639|mt7927.*bluetooth|BT_RAM_CODE|hci[0-9].*MT' || true)"
 
 	if [[ -z "$bt_dmesg" ]]; then
 		na "no btmtk/btusb messages in dmesg"
@@ -721,6 +731,11 @@ reload_modules() {
 # Main
 # ---------------------------------------------------------------------------
 main() {
+	if ((EUID != 0)); then
+		echo "ERROR: this script must be run as root (sudo ./test-driver.sh)"
+		exit 1
+	fi
+
 	local iface="${1:-}"
 
 	# Reload WiFi and BT modules so we test the installed DKMS build,
