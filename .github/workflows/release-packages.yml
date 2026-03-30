@@ -38,9 +38,10 @@ jobs:
       - name: Create GitHub release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ steps.tag.outputs.tag }}
         run: |
-          gh release create "${{ steps.tag.outputs.tag }}" \
-            --title "${{ steps.tag.outputs.tag }}" \
+          gh release create "$TAG" \
+            --title "$TAG" \
             --notes-file /tmp/release-notes.md
 
   build-rpm:
@@ -59,9 +60,10 @@ jobs:
       - name: Upload RPM to release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.create-release.outputs.tag }}
         run: |
           dnf install -y gh
-          gh release upload "${{ needs.create-release.outputs.tag }}" \
+          gh release upload "$TAG" \
             rpmbuild/RPMS/noarch/*.rpm \
             --repo "${{ github.repository }}"
 
@@ -80,6 +82,7 @@ jobs:
       - name: Upload DEB to release
         env:
           GH_TOKEN: ${{ github.token }}
+          TAG: ${{ needs.create-release.outputs.tag }}
         run: |
-          gh release upload "${{ needs.create-release.outputs.tag }}" \
+          gh release upload "$TAG" \
             *.deb
