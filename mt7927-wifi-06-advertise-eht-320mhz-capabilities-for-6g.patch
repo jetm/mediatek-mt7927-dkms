@@ -10,6 +10,7 @@ Add the missing 320MHz capability bits for 6GHz:
   - PHY_CAP1: beamformee SS for 320MHz
   - PHY_CAP2: sounding dimensions for 320MHz
   - PHY_CAP6: MCS15 support for 320MHz width
+  - PHY_CAP7: non-OFDMA UL MU-MIMO and MU beamformer for 320MHz
   - MCS/NSS: populate bw._320 maps for 6GHz band
 
 Introduce is_320mhz_supported() to gate 320MHz on MT7927 only, since
@@ -28,11 +29,11 @@ Signed-off-by: Javier Tia <floss@jetm.me>
 
 87917796bc18c35f203dc6969ba7ac0f4c94d265
 diff --git a/mt76_connac.h b/mt76_connac.h
-index 51423c7..2deee83 100644
+index bce95de..a1f3b2c 100644
 --- a/mt76_connac.h
 +++ b/mt76_connac.h
-@@ -179,2 +179,7 @@ static inline bool is_mt7925(struct mt76_dev *dev)
- 
+@@ -184,2 +184,7 @@ static inline bool is_mt7927(struct mt76_dev *dev)
+
 +static inline bool is_320mhz_supported(struct mt76_dev *dev)
 +{
 +	return is_mt7927(dev);
@@ -72,7 +73,14 @@ index f128a19..cfce851 100644
 +	val = width == NL80211_CHAN_WIDTH_320 ? 0xf :
 +	      width == NL80211_CHAN_WIDTH_160 ? 0x7 :
  	      width == NL80211_CHAN_WIDTH_80 ? 0x3 : 0x1;
-@@ -241,2 +256,7 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
+@@ -231,2 +246,6 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
+ 		IEEE80211_EHT_PHY_CAP7_MU_BEAMFORMER_160MHZ;
++	if (band == NL80211_BAND_6GHZ && is_320mhz_supported(&phy->dev->mt76))
++		eht_cap_elem->phy_cap_info[7] |=
++			IEEE80211_EHT_PHY_CAP7_NON_OFDMA_UL_MU_MIMO_320MHZ |
++			IEEE80211_EHT_PHY_CAP7_MU_BEAMFORMER_320MHZ;
+
+@@ -247,2 +266,7 @@ mt7925_init_eht_caps(struct mt792x_phy *phy, enum nl80211_band band,
  	eht_nss->bw._160.rx_tx_mcs13_max_nss = val;
 +	if (band == NL80211_BAND_6GHZ && is_320mhz_supported(&phy->dev->mt76)) {
 +		eht_nss->bw._320.rx_tx_mcs9_max_nss = val;
