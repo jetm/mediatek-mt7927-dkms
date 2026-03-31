@@ -7,8 +7,7 @@ via BSS_RLM TLV. Firmware then configures the RX radio for 20MHz
 and cannot decode the AP's 320MHz frames, resulting in complete data
 path failure at 320MHz.
 
-Add the missing NL80211_CHAN_WIDTH_320 case with CMD_CBW_320MHZ and
-center_chan2.
+Add the missing NL80211_CHAN_WIDTH_320 case with CMD_CBW_320MHZ.
 
 Tested on ASUS RT-BE92U: 320MHz throughput goes from 0 Mbps to
 841 Mbps (iperf3 -t30 -P8), PHY 4803 Mbps EHT-MCS11.
@@ -31,10 +30,9 @@ diff --git a/mt7925/mcu.c b/mt7925/mcu.c
 index cf0fdea..dd5ecb0 100644
 --- a/mt7925/mcu.c
 +++ b/mt7925/mcu.c
-@@ -2333,2 +2333,6 @@ void mt7925_mcu_bss_rlm_tlv(struct sk_buff *skb, struct mt76_phy *phy,
+@@ -2333,2 +2333,5 @@ void mt7925_mcu_bss_rlm_tlv(struct sk_buff *skb, struct mt76_phy *phy,
  		break;
 +	case NL80211_CHAN_WIDTH_320:
 +		req->bw = CMD_CBW_320MHZ;
-+		req->center_chan2 = ieee80211_frequency_to_channel(freq2);
 +		break;
  	case NL80211_CHAN_WIDTH_5:
