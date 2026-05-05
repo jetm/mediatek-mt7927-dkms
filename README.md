@@ -45,6 +45,7 @@ device ID and firmware patches not yet in mainline. Supports kernels 6.17+.
 | Gigabyte X870E Aorus Master X3D | 0489:e10f | 14c3:7927 |
 | Gigabyte Z790 AORUS MASTER X | 0489:e10f | 14c3:7927 |
 | Gigabyte Z790 AORUS ELITE X WiFi7 | 0489:e10f | 14c3:7927 |
+| Gigabyte X870E Aero Wood/Dark Wood X3D | 0489:e10f | 14c3:7927 |
 | MSI MEG X870E ACE MAX | 0489:e110 | 14c3:7927 |
 | Lenovo Legion Pro 7 16ARX9 | 0489:e0fa | 14c3:7927 |
 | Lenovo Legion Pro 7 16AFR10H | 0489:e0fa | 14c3:7927 |
