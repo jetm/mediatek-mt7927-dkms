@@ -1,0 +1,45 @@
+wifi: mt76: mt7925: clear DROP_PROBEREQ in RX filter for AP mode
+
+mt7925_configure_filter() only manipulates a 3-bit FIF mask
+(FCSFAIL, CONTROL, OTHER_BSS) and never clears
+MT_WF_RFCR_DROP_PROBEREQ from the connac3 RX filter. As a result,
+the firmware drops directed probe requests before they reach
+mac80211, and the AP never generates probe responses.
+
+STAs that need probe response refresh to keep a BSS in their scan
+cache (notably Qualcomm-based clients such as the Xiaomi 14 Ultra)
+cycle indefinitely between scan and "no_bss_found" and cannot
+establish a connection. STAs that do not strictly require probe
+responses (e.g. HiSilicon-based) can still associate, which masks
+the bug on some hardware combinations.
+
+Bringing up a monitor interface as a workaround happens to fix
+the issue because the monitor mode setup goes through a different
+MCU command path that bypasses the per-VIF filter.
+
+Every other mt76 driver clears this bit explicitly: mt7603/main.c,
+mt7615/main.c, mt7915/main.c, mt7996/main.c. Bring mt7925 in line
+by adding a second mt7925_mcu_set_rxfilter() call that clears
+MT_WF_RFCR_DROP_PROBEREQ via the bitmap interface that
+mt7925_mcu_set_beacon_filter() already uses for
+MT_WF_RFCR_DROP_OTHER_BEACON.
+
+Signed-off-by: Javier Tia <floss@jetm.me>
+Reported-by: SerialVelocity <SerialVelocity@users.noreply.github.com>
+Closes: https://github.com/jetm/mediatek-mt7927-dkms/issues/61
+Fixes: c948b5da6bbe ("wifi: mt76: mt7925: add Mediatek Wi-Fi7 driver for mt7925 chips")
+
+e5d1e64b7361547c5cbde5feee96dfdee94e9ac2
+diff --git a/mt7925/main.c b/mt7925/main.c
+index 844f8ff..bfaebeb 100644
+--- a/mt7925/main.c
++++ b/mt7925/main.c
+@@ -840,2 +840,3 @@ static void mt7925_configure_filter(struct ieee80211_hw *hw,
+ #define MT7925_FILTER_ENABLE     BIT(31)
++#define MT7925_FIF_BIT_CLR       BIT(1)
+ 	struct mt792x_dev *dev = mt792x_hw_dev(hw);
+@@ -854,2 +855,4 @@ static void mt7925_configure_filter(struct ieee80211_hw *hw,
+ 	mt7925_mcu_set_rxfilter(dev, flags, 0, 0);
++	mt7925_mcu_set_rxfilter(dev, 0, MT7925_FIF_BIT_CLR,
++				MT_WF_RFCR_DROP_PROBEREQ);
+ 	mt792x_mutex_release(dev);
