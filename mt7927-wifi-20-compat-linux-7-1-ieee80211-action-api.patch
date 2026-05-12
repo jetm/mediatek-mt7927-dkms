@@ -1,0 +1,53 @@
+wifi: mt76: add Linux 7.1 action frame API compatibility
+
+Linux 7.1 changed struct ieee80211_mgmt action frame accessors and made
+IEEE80211_MIN_ACTION_SIZE take the fixed-field member name. Keep the DKMS
+source building on older kernels while using the new API on 7.1 and newer.
+
+Signed-off-by: Komzpa <me@komzpa.net>
+
+diff --git a/mt76_connac_mac.c b/mt76_connac_mac.c
+index a417a0a..734d9f0 100644
+--- a/mt76_connac_mac.c
++++ b/mt76_connac_mac.c
+@@ -4,2 +4,3 @@
+ #include "dma.h"
++#include <linux/version.h>
+ 
+@@ -412,8 +413,15 @@ mt76_connac2_mac_write_txwi_80211(struct mt76_dev *dev, __le32 *txwi,
+ 
+ 	if (ieee80211_is_action(fc) &&
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0)
++	    skb->len >= IEEE80211_MIN_ACTION_SIZE(action_code) + 1 + 2 &&
++	    mgmt->u.action.category == WLAN_CATEGORY_BACK &&
++	    mgmt->u.action.action_code == WLAN_ACTION_ADDBA_REQ) {
++		u16 capab = le16_to_cpu(mgmt->u.action.addba_req.capab);
++#else
+ 	    skb->len >= IEEE80211_MIN_ACTION_SIZE + 1 + 1 + 2 &&
+ 	    mgmt->u.action.category == WLAN_CATEGORY_BACK &&
+ 	    mgmt->u.action.u.addba_req.action_code == WLAN_ACTION_ADDBA_REQ) {
+ 		u16 capab = le16_to_cpu(mgmt->u.action.u.addba_req.capab);
++#endif
+ 
+ 		txwi[5] |= cpu_to_le32(MT_TXD5_ADD_BA);
+diff --git a/mt7925/mac.c b/mt7925/mac.c
+index eb09e74..c841b3b 100644
+--- a/mt7925/mac.c
++++ b/mt7925/mac.c
+@@ -4,2 +4,3 @@
+ #include <linux/timekeeping.h>
++#include <linux/version.h>
+ #include "mt7925.h"
+@@ -672,6 +673,12 @@ mt7925_mac_write_txwi_80211(struct mt76_dev *dev, __le32 *txwi,
+ 
+ 	if (ieee80211_is_action(fc) &&
++#if LINUX_VERSION_CODE >= KERNEL_VERSION(7, 1, 0)
++	    skb->len >= IEEE80211_MIN_ACTION_SIZE(action_code) + 1 &&
++	    mgmt->u.action.category == WLAN_CATEGORY_BACK &&
++	    mgmt->u.action.action_code == WLAN_ACTION_ADDBA_REQ)
++#else
+ 	    skb->len >= IEEE80211_MIN_ACTION_SIZE + 1 &&
+ 	    mgmt->u.action.category == WLAN_CATEGORY_BACK &&
+ 	    mgmt->u.action.u.addba_req.action_code == WLAN_ACTION_ADDBA_REQ)
++#endif
+ 		tid = MT_TX_ADDBA;
