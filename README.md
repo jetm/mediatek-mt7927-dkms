@@ -32,7 +32,7 @@ device ID and firmware patches not yet in mainline. Supports kernels 6.17+.
 | WiFi (MT7925e via PCIe) | **WORKING** | 2.4/5/6 GHz, 320MHz EHT, suspend/resume |
 
 **Known issues:**
-- TX retransmissions were elevated (~35% at 320 MHz, firmware-side). Firmware bundled since v2.12 (ASUS 5.7.0.5659) reduces retry to ~0.95%. EHT path overhead also limits upload throughput - disable with `disable_eht=1` in wpa_supplicant for a ~2x upload improvement at 160 MHz. ([#26](https://github.com/jetm/mediatek-mt7927-dkms/issues/26))
+- TX retransmissions can be elevated (~35% at 320 MHz, firmware-side) depending on which firmware build you run. Since v2.14-4 the WiFi firmware comes from linux-firmware rather than from this package; see "WiFi firmware" below. EHT path overhead also limits upload throughput - disable with `disable_eht=1` in wpa_supplicant for a ~2x upload improvement at 160 MHz. ([#26](https://github.com/jetm/mediatek-mt7927-dkms/issues/26))
 - Bluetooth USB device may disappear after module reload or DKMS upgrade, persists
   across reboots. The MT6639 BT firmware locks up, and a normal reboot does not clear
   it because the controller keeps standby power. Preferred fix: enable **ErP** in the
@@ -393,15 +393,37 @@ These are planned as follow-up patches once the base series lands:
   full DMA reinitialization on firmware crash. Has unguarded paths on
   mt7925 standalone that need fixing first.
 
+### WiFi firmware
+
+Since v2.14-4 this package does **not** install the MT7927 WiFi firmware. MediaTek's
+own build is in linux-firmware (merged as MR !1055), and the kernel's firmware loader
+tries the uncompressed name before the `.zst` one, so a copy installed here silently
+shadowed the newer vendor blob. Get the WiFi firmware from your distro's
+`linux-firmware` package instead.
+
+If your linux-firmware predates that merge, extract the blobs from the vendor ZIP by
+hand:
+
+```bash
+make download                      # fetches the ASUS driver ZIP
+python3 extract_firmware.py DRV_WiFi_MTK_*.zip /usr/lib/firmware/mediatek/mt7927/
+```
+
+The Bluetooth blob (`BT_RAM_CODE_MT6639_2_1_hdr.bin`) is still installed by this
+package, and has to be: linux-firmware only accepts vendor blobs from the copyright
+holder, so MR !946 was closed and MT6639 BT firmware has to be submitted by MediaTek
+before it can live there.
+
 ### Firmware dependencies
 
 These issues are firmware-controlled and cannot be fixed in the driver:
 
 - **TX retransmissions** ([#26](https://github.com/jetm/mediatek-mt7927-dkms/issues/26)) -
-  Firmware bundled since v2.12 (ASUS 5.7.0.5659 / Station-Drivers 26.30.3.61) reduces
-  TX retry from ~35% to ~0.95% at 320 MHz. EHT path overhead halves upload throughput
-  at 160 MHz - disable with `disable_eht=1` (see Troubleshooting). v25.030.x firmware
-  does NOT fix retries; the improvement requires the 26.30.x branch.
+  TX retry runs at ~35% at 320 MHz on some firmware builds. EHT path overhead halves
+  upload throughput at 160 MHz - disable with `disable_eht=1` (see Troubleshooting).
+  Newer is not reliably better on this chip: the ASUS 5.7.0.5659 build fails the
+  WPA3-SAE handshake against some UniFi APs ([#102](https://github.com/jetm/mediatek-mt7927-dkms/issues/102)).
+  Try the linux-firmware build first and only hunt for another if it misbehaves.
 - **BT USB disappearance** ([#23](https://github.com/jetm/mediatek-mt7927-dkms/issues/23)) -
   MT6639 BT firmware locks up during module reload, requires full power cycle
   (PSU unplug). Affects Linux and Windows.
