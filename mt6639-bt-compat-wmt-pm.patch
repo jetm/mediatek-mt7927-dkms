@@ -16,32 +16,32 @@ SPDX-License-Identifier: ISC
  	struct btmtk_wmt_hdr *hdr;
  	int err;
 +	bool pm_held = false;
- 
+
  	/* Send the WMT command and wait until the WMT event returns */
  	hlen = sizeof(*hdr) + wmt_params->dlen;
 @@ -681,18 +682,17 @@
  	if (err < 0)
  		goto err_free_wc;
- 
+
 +	pm_held = true;
  	err = __hci_cmd_send(hdev, 0xfc6f, hlen, wc);
- 
+
  	if (err < 0) {
  		clear_bit(BTMTK_TX_WAIT_VND_EVT, &data->flags);
 -		usb_autopm_put_interface(data->intf);
  		goto err_free_wc;
  	}
- 
+
  	/* Submit control IN URB on demand to process the WMT event */
  	err = btmtk_usb_submit_wmt_recv_urb(hdev);
- 
+
 -	usb_autopm_put_interface(data->intf);
- 
+
  	if (err < 0)
  		goto err_free_wc;
 @@ -710,7 +710,8 @@
  				  TASK_UNINTERRUPTIBLE, HCI_INIT_TIMEOUT);
- 
+
  	if (err) {
 -		bt_dev_err(hdev, "Execution of wmt command timed out");
 +		bt_dev_err(hdev, "WMT timeout: op=0x%02x flag=0x%02x len=%u",

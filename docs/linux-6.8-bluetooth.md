@@ -7,8 +7,11 @@ compatibility changes. It does not backport the Bluetooth core or add Linux
 ## Implementation
 
 - `BUILD_WIFI=no` prepares and stages Bluetooth independently of mt76.
-  DKMS module declarations, MAKE and CLEAN follow the selected module groups.
-  DKMS uses its target `kernelver`, not the running kernel.
+  DKMS module declarations and MAKE follow the selected module groups.
+- Both the default and Bluetooth-only packages require DKMS to provide the
+  target `kernelver`; a missing value is an error rather than a fallback to
+  the running kernel. CLEAN is not assigned because DKMS 3.x deprecated it
+  and no longer executes it.
 - `PREPARE_FIRMWARE=no` allows source-only builds and staging; this option does
   not supply the firmware needed by the device.
 - Compatibility patches handle unaligned headers, the 6.8 quirk bitmap, the
@@ -16,6 +19,8 @@ compatibility changes. It does not backport the Bluetooth core or add Linux
 - Firmware header/section/payload bounds are checked. Runtime PM references
   cover the WMT command and reply, and reset paths release their references.
   Failed WMT transactions cancel control receive polling and release events.
+  The payload-bounds, usb-pm and wmt-pm patches apply to every build through
+  the `mt6639-bt-compat-*.patch` glob, not only the Linux 6.8 path.
 - `btmtk.mt6639_diagnostics` defaults to false. Enabling it logs bounded MT6639
   initialization details and suppresses automatic hardware reset for diagnosis.
   It is not the recommended operating mode or a claim that reset is unnecessary.

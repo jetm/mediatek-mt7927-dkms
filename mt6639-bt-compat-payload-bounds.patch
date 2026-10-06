@@ -30,7 +30,7 @@ SPDX-License-Identifier: ISC
 +		err = -EINVAL;
 +		goto err_release_fw;
  	}
- 
+
  	fw_ptr = fw->data;
 @@ -163,18 +170,27 @@
  	hdr = (struct btmtk_patch_header *)fw_ptr;
@@ -46,21 +46,21 @@ SPDX-License-Identifier: ISC
 +
 +	bt_dev_info(hdev, "HW/SW Version: 0x%04x%04x, Build Time: %.16s",
  		    le16_to_cpu(hdr->hwver), le16_to_cpu(hdr->swver), hdr->datetime);
- 
+
  	for (i = 0; i < section_num; i++) {
  		first_block = 1;
  		fw_ptr = fw_bin_ptr;
  		sectionmap = (struct btmtk_section_map *)(fw_ptr + MTK_FW_ROM_PATCH_HEADER_SIZE +
 -			      MTK_FW_ROM_PATCH_GD_SIZE + MTK_FW_ROM_PATCH_SEC_MAP_SIZE * i);
 +			      MTK_FW_ROM_PATCH_GD_SIZE + (size_t)MTK_FW_ROM_PATCH_SEC_MAP_SIZE * i);
- 
+
  		section_offset = le32_to_cpu(sectionmap->secoffset);
  		dl_size = le32_to_cpu(sectionmap->bin_info_spec.dlsize);
 +		if (section_offset > fw->size || dl_size > fw->size - section_offset) {
 +			err = -EINVAL;
 +			goto err_release_fw;
 +		}
- 
+
  		/* MT6639: only download sections where dlmode byte0 == 0x01,
  		 * matching the Windows driver behavior which skips WiFi/other
 @@ -191,7 +207,7 @@
@@ -71,10 +71,10 @@ SPDX-License-Identifier: ISC
 +				       (size_t)MTK_FW_ROM_PATCH_SEC_MAP_SIZE * i +
  				       MTK_SEC_MAP_COMMON_SIZE,
  				       MTK_SEC_MAP_NEED_SEND_SIZE);
- 
+
 @@ -233,7 +249,7 @@
  			wmt_params.op = BTMTK_WMT_PATCH_DWNLD;
- 
+
  			while (dl_size > 0) {
 -				dlen = min_t(int, 250, dl_size);
 +				dlen = min_t(u32, 250, dl_size);

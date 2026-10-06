@@ -17,21 +17,6 @@ DKMS driver for MediaTek MT7927 (Filogic 380) - WiFi 7 + Bluetooth 5.4 on Linux.
 Builds out-of-tree btusb/btmtk (Bluetooth) and mt76 (WiFi) kernel modules with
 device ID and firmware patches not yet in mainline. Supports kernels 6.17+.
 
-Local Ubuntu 22.04 Bluetooth backport: on MSI B850MPOWER (`0489:e110`),
-the `2.16.68diag1` candidate has been tested on `6.8.0-138-generic` with
-Secure Boot enabled and diagnostics disabled. Initialization, scanning,
-pairing, reboot, automatic QC45 connection and actual A2DP playback have
-been observed (scanning/pairing were tested in diagnostic mode). The
-`2.16.68.1` local package has passed signed DKMS installation without force,
-normal-mode initialization, reboot, power-disconnected cold boot, QC45
-connection and actual playback.
-This does not extend the WiFi support statement to Linux 6.8;
-one deep/S3 suspend/resume restored the controller, automatic QC45
-connection and actual A2DP playback, confirmed by the user.
-Platform xHCI reinitialization/USB reset warnings occurred on resume. HFP
-remains untested. See the
-[local package steps](docs/linux-6.8-bluetooth.md).
-
 > **Maintenance notice:** This project is actively maintained. Response times
 > may be delayed - my current focus is on other projects that can give me a
 > steady income so I can continue giving my best here. Patches are being
@@ -109,6 +94,12 @@ Requires kernel 6.17+ and DKMS.
 | Bazzite (Fedora Atomic) | 6.17+ | [Container image](https://github.com/samutoljamo/bazzite-mt7927) |
 | Artix Linux | 6.18+ | `make install` |
 | Linux Mint 22.2 (Ubuntu 24.04) | 6.17+ | `make install` |
+
+A Bluetooth-only backport has been validated on MSI B850MPOWER (`0489:e110`)
+with Ubuntu 22.04.5 and kernel `6.8.0-138-generic`; WiFi support still requires
+kernel 6.17+.
+See [the Linux 6.8 Bluetooth documentation](docs/linux-6.8-bluetooth.md) for
+build instructions and the full validation record.
 
 ## Naming guide
 

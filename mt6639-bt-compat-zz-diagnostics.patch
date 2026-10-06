@@ -14,7 +14,7 @@ SPDX-License-Identifier: ISC
 +++ b/btmtk.c
 @@ -19,6 +19,12 @@
  #include "btmtk.h"
- 
+
  #define VERSION "0.1"
 +
 +/* Explicit test mode: bounded logs, no automatic MT6639 hardware reset. */
@@ -22,13 +22,13 @@ SPDX-License-Identifier: ISC
 +module_param(mt6639_diagnostics, bool, 0444);
 +MODULE_PARM_DESC(mt6639_diagnostics,
 +	"Log MT6639 initialization stages and suppress automatic hardware resets");
- 
+
  /* It is for mt79xx download rom patch*/
  #define MTK_FW_ROM_PATCH_HEADER_SIZE	32
 @@ -179,6 +185,10 @@
  	bt_dev_info(hdev, "HW/SW Version: 0x%04x%04x, Build Time: %.16s",
  		    le16_to_cpu(hdr->hwver), le16_to_cpu(hdr->swver), hdr->datetime);
- 
+
 +	if (mt6639_diagnostics && dev_id == 0x6639)
 +		bt_dev_info(hdev, "MT6639 diag: firmware %s bytes=%zu sections=%u",
 +			    fwname, fw->size, section_num);
@@ -66,23 +66,23 @@ SPDX-License-Identifier: ISC
 +		bt_dev_warn(hdev, "MT6639 diag: automatic hardware reset suppressed");
 +		return;
 +	}
- 
+
  	hci_dev_lock(hdev);
- 
+
 @@ -1389,6 +1411,9 @@
  	}
- 
+
  	btmtk_data->dev_id = dev_id;
 +	if (mt6639_diagnostics && dev_id == 0x6639)
 +		bt_dev_info(hdev, "MT6639 diag: device=%08x fw_version=%08x flavor=%u",
 +			    dev_id, fw_version, fw_flavor);
- 
+
  	err = btmtk_register_coredump(hdev, btmtk_data->drv_name, fw_version);
  	if (err < 0)
 @@ -1436,12 +1461,17 @@
  			return err;
  		}
- 
+
 +		if (mt6639_diagnostics && dev_id == 0x6639)
 +			bt_dev_info(hdev, "MT6639 diag: firmware download completed");
 +
@@ -91,7 +91,7 @@ SPDX-License-Identifier: ISC
  					      MTK_EP_RST_IN_OUT_OPT);
  		if (err < 0)
  			return err;
- 
+
 +		if (mt6639_diagnostics && dev_id == 0x6639)
 +			bt_dev_info(hdev, "MT6639 diag: enabling Bluetooth protocol");
  		/* Enable Bluetooth protocol */
@@ -100,9 +100,9 @@ SPDX-License-Identifier: ISC
 @@ -1456,6 +1486,8 @@
  			return err;
  		}
- 
+
 +		if (mt6639_diagnostics && dev_id == 0x6639)
 +			bt_dev_info(hdev, "MT6639 diag: Bluetooth protocol enabled");
  		hci_set_msft_opcode(hdev, 0xFD30);
  		hci_set_aosp_capable(hdev);
- 
+

@@ -24,14 +24,14 @@ SPDX-License-Identifier: GPL-2.0-or-later
 +#else
  #include <linux/unaligned.h>
 +#endif
- 
+
  #include <net/bluetooth/bluetooth.h>
  #include <net/bluetooth/hci_core.h>
 +#if __has_include(<net/bluetooth/hci_drv.h>)
  #include <net/bluetooth/hci_drv.h>
 +#define BTUSB_HAS_HCI_DRV
 +#endif
- 
+
  #include "btintel.h"
  #include "btbcm.h"
  #include "btrtl.h"
@@ -42,11 +42,11 @@ SPDX-License-Identifier: GPL-2.0-or-later
 +#define hci_set_quirk(hdev, nr) set_bit((nr), &(hdev)->quirks)
 +#define hci_clear_quirk(hdev, nr) clear_bit((nr), &(hdev)->quirks)
 +#endif
- 
+
  #define VERSION "0.8"
- 
+
 @@ -3302,6 +3316,11 @@
- 
+
  static int btusb_recv_acl_qca(struct hci_dev *hdev, struct sk_buff *skb)
  {
 +#if LINUX_VERSION_CODE < KERNEL_VERSION(6, 9, 0)
@@ -60,7 +60,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 @@ -3936,6 +3955,7 @@
  	.llseek		= default_llseek,
  };
- 
+
 +#ifdef BTUSB_HAS_HCI_DRV
  #define BTUSB_HCI_DRV_OP_SUPPORTED_ALTSETTINGS \
  		hci_opcode_pack(HCI_DRV_OGF_DRIVER_SPECIFIC, 0x0000)
@@ -68,7 +68,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 @@ -4066,6 +4086,8 @@
  	.specific_handlers	= btusb_hci_drv_specific_handlers,
  };
- 
+
 +#endif /* BTUSB_HAS_HCI_DRV */
 +
  static int btusb_probe(struct usb_interface *intf,
@@ -81,7 +81,7 @@ SPDX-License-Identifier: GPL-2.0-or-later
 +#ifdef BTUSB_HAS_HCI_DRV
  	hdev->hci_drv = &btusb_hci_drv;
 +#endif
- 
+
  	err = btusb_config_oob_wake(hdev);
  	if (err)
 @@ -4311,7 +4335,9 @@
@@ -106,6 +106,6 @@ SPDX-License-Identifier: GPL-2.0-or-later
 +#else
  #include <linux/unaligned.h>
 +#endif
- 
+
  #include <net/bluetooth/bluetooth.h>
  #include <net/bluetooth/hci_core.h>
