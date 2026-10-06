@@ -128,6 +128,7 @@ ifneq ($(DKMS_KERNEL_PATTERN),)
 endif
 	chmod 644 "$(DESTDIR)$(DKMS_PREFIX)/dkms.conf"
 	install -Dm755 "$(TOPDIR)extract_firmware.py" "$(DESTDIR)$(DKMS_PREFIX)/extract_firmware.py"
+	install -Dm755 "$(TOPDIR)dkms-post-remove.sh" "$(DESTDIR)$(DKMS_PREFIX)/dkms-post-remove.sh"
 	# Bluetooth source for DKMS btusb builds
 	install -dm755 "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth"
 	install -m644 $(SRCDIR)/bluetooth/btusb.c  "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth/"
