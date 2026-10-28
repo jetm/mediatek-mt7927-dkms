@@ -1,6 +1,6 @@
 # Ubuntu 22.04 Bluetooth backport for Linux 6.8
 
-This work backports the Linux 7.2 `btusb`/`btmtk` drivers with driver-local
+This work backports the Linux 7.3 `btusb`/`btmtk` drivers with driver-local
 compatibility changes. It does not backport the Bluetooth core or add Linux
 6.8 support to the WiFi modules. The upstream 6.17+ support statement is unchanged.
 
@@ -53,8 +53,11 @@ has not been tested. The explicit DKMS build/install path was tested.
 
 ## Sources and firmware
 
-Driver source: Linux 7.2, as pinned by PKGBUILD. SHA-256:
-`f9fef3d14c0df53819026f4be74459835c2a0b0dcbf5b5bbd9ea19f0829402b3`.
+Driver source: Linux 7.3, as pinned by PKGBUILD since 2.17. SHA-256:
+`87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953`.
+The hardware validation recorded below was done on a package built from the
+Linux 7.2 base; the 7.3 rebase has been built and patch-checked but has not been
+run on that hardware.
 Target API comparison used Ubuntu linux-hwe-6.8
 `6.8.0-138.138~22.04.1` headers, Module.symvers and Bluetooth sources.
 Upstream copyright and licenses are retained in the drivers and patches.
