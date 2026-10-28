@@ -129,6 +129,7 @@ endif
 	chmod 644 "$(DESTDIR)$(DKMS_PREFIX)/dkms.conf"
 	install -Dm755 "$(TOPDIR)extract_firmware.py" "$(DESTDIR)$(DKMS_PREFIX)/extract_firmware.py"
 	install -Dm755 "$(TOPDIR)dkms-post-remove.sh" "$(DESTDIR)$(DKMS_PREFIX)/dkms-post-remove.sh"
+	install -Dm755 "$(TOPDIR)check-wifi-firmware.sh" "$(DESTDIR)$(DKMS_PREFIX)/check-wifi-firmware.sh"
 	# Bluetooth source for DKMS btusb builds
 	install -dm755 "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth"
 	install -m644 $(SRCDIR)/bluetooth/btusb.c  "$(DESTDIR)$(DKMS_PREFIX)/drivers/bluetooth/"
@@ -181,6 +182,10 @@ ifeq ($(BUILD_WIFI),yes)
 	install -m644 $(TOPDIR)mt7927-wifi-*.patch "$(DESTDIR)$(DKMS_PREFIX)/patches/wifi/"
 endif
 	@echo "==> Install complete."
+ifeq ($(BUILD_WIFI),yes)
+	@# A packager staging into DESTDIR runs the check from the package scriptlet.
+	@if [ -z "$(DESTDIR)" ]; then "$(TOPDIR)check-wifi-firmware.sh"; fi
+endif
 
 # ── rpm ─────────────────────────────────────────────────────────────
 rpm:
