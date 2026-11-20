@@ -53,11 +53,11 @@ has not been tested. The explicit DKMS build/install path was tested.
 
 ## Sources and firmware
 
-Driver source: Linux 7.3, as pinned by PKGBUILD since 2.17. SHA-256:
-`87363c24f10e06321eb362765521094e94471f6bff8bce2d6b3e40f39f004953`.
+Driver source: Linux 7.3.5, as pinned by PKGBUILD since 2.18 (7.3 from 2.17).
+SHA-256: `8f293f83d54f0b7b9be56863ebc5e4ea79d73e530b4ae55c572be97ef39f0990`.
 The hardware validation recorded below was done on a package built from the
-Linux 7.2 base; the 7.3 rebase has been built and patch-checked but has not been
-run on that hardware.
+Linux 7.2 base; the 7.3.5 rebase has been built and patch-checked but has not
+been run on that hardware.
 Target API comparison used Ubuntu linux-hwe-6.8
 `6.8.0-138.138~22.04.1` headers, Module.symvers and Bluetooth sources.
 Upstream copyright and licenses are retained in the drivers and patches.
