@@ -130,7 +130,16 @@ build() {
 }
 
 package() {
+  local _zips=("${SRCDEST:-$PWD}"/DRV_WiFi_MTK_MT7925_MT7927*.zip)
+
+  # The install target re-runs the staging recipe, because check-version is a
+  # .PHONY prerequisite of the stamp. Without the same inputs build() passes it
+  # falls back to a tarball and ZIP in startdir, which only exist when
+  # SRCDEST is startdir.
   make -C "${startdir}" install \
+    MT76_KVER="${_mt76_kver}" \
+    KERNEL_TARBALL="${srcdir}/linux-${_mt76_kver}.tar.xz" \
+    DRIVER_ZIP="${_zips[0]}" \
     SRCDIR="${srcdir}/_build" \
     DESTDIR="${pkgdir}" \
     VERSION="${pkgver}"
